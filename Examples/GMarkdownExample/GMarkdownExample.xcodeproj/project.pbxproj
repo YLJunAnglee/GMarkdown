@@ -26,6 +26,10 @@
 		6AF6B6B2AB0DDEE4160BF3D0 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4F40CB2FCF10C84C18B559 /* ViewController.swift */; };
 		95C5C3ED71581EF51445984A /* MarkdownRenderController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1727BC9EC0B761FAAF53EE /* MarkdownRenderController.swift */; };
 		B216BB4600A5140044AF4DD0 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0986CB902860689FB0FE029B /* Main.storyboard */; };
+		B45100000000000000000001 /* TableBaselineViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000001 /* TableBaselineViewController.swift */; };
+		B45100000000000000000002 /* table_baseline_a.md in Resources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000002 /* table_baseline_a.md */; };
+		B45100000000000000000003 /* table_baseline_b.md in Resources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000003 /* table_baseline_b.md */; };
+		B45100000000000000000004 /* table_baseline_c.md in Resources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000004 /* table_baseline_c.md */; };
 		F9786C3F04498F7DBF2CE17F /* GMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = D59A22C634C0FF0E460754BE /* GMarkdown */; };
 /* End PBXBuildFile section */
 
@@ -50,6 +54,10 @@
 		CA2DB0AC5C73C8C37CFA439F /* GMarkdownExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GMarkdownExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76B57722F3D40404987BA64 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		DB231D7527DBBE4BA252BC18 /* TextViewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextViewViewController.swift; sourceTree = "<group>"; };
+		B45200000000000000000001 /* TableBaselineViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableBaselineViewController.swift; sourceTree = "<group>"; };
+		B45200000000000000000002 /* table_baseline_a.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = table_baseline_a.md; sourceTree = "<group>"; };
+		B45200000000000000000003 /* table_baseline_b.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = table_baseline_b.md; sourceTree = "<group>"; };
+		B45200000000000000000004 /* table_baseline_c.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = table_baseline_c.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +77,9 @@
 		2BD9E4732DB73F00005638D0 /* md */ = {
 			isa = PBXGroup;
 			children = (
+				B45200000000000000000002 /* table_baseline_a.md */,
+				B45200000000000000000003 /* table_baseline_b.md */,
+				B45200000000000000000004 /* table_baseline_c.md */,
 				2B64E00B2E155290002B71C2 /* markdownLatex */,
 				2B6C0D302E182D9C00F6D641 /* markdownTemp */,
 				114640C16E263162F58A1B43 /* markdown */,
@@ -109,6 +120,7 @@
 				C668D18BDBB1E7F3E2ACCD51 /* NukeImageLoader.swift */,
 				D76B57722F3D40404987BA64 /* SceneDelegate.swift */,
 				DB231D7527DBBE4BA252BC18 /* TextViewViewController.swift */,
+				B45200000000000000000001 /* TableBaselineViewController.swift */,
 				2B6C0D2C2E0F0B8A00F6D641 /* RealTimeRenderController.swift */,
 				4D4F40CB2FCF10C84C18B559 /* ViewController.swift */,
 			);
@@ -184,6 +196,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B45100000000000000000002 /* table_baseline_a.md in Resources */,
+				B45100000000000000000003 /* table_baseline_b.md in Resources */,
+				B45100000000000000000004 /* table_baseline_c.md in Resources */,
 				2B052D052D82B70500BAE956 /* markdown in Resources */,
 				2B6C0D312E182DA900F6D641 /* markdownTemp in Resources */,
 				2B64E00C2E1552A0002B71C2 /* markdownLatex in Resources */,
@@ -204,6 +219,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B45100000000000000000001 /* TableBaselineViewController.swift in Sources */,
 				3990ACD55BC5C22064C6B29D /* AppDelegate.swift in Sources */,
 				95C5C3ED71581EF51445984A /* MarkdownRenderController.swift in Sources */,
 				13D98D2720E5CF4446F1756B /* NukeImageLoader.swift in Sources */,

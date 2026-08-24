@@ -106,6 +106,12 @@ class ViewController: UIViewController {
     
     private let examples: [ExampleItem] = [
         ExampleItem(
+            title: "TABLE Baseline",
+            description: "Records the unmodified table renderer with fixed fixtures and timing samples",
+            icon: "tablecells",
+            viewController: TableBaselineViewController.self
+        ),
+        ExampleItem(
             title: "Markdown Renderer",
             description: "Demonstrates basic Markdown rendering features including headings, lists, and code blocks",
             icon: "doc.text.fill",
@@ -180,4 +186,3 @@ extension ViewController: UICollectionViewDataSource, UICollectionViewDelegate {
         navigationController?.pushViewController(viewController, animated: true)
     }
 }
-

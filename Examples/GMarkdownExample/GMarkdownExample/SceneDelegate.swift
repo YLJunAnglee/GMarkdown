@@ -17,6 +17,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
     // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
     guard let _ = (scene as? UIWindowScene) else { return }
+
+    if let fixture = TableBaselineFixture.fromProcessArguments(ProcessInfo.processInfo.arguments),
+       let navigationController = window?.rootViewController as? UINavigationController {
+      let baselineController = TableBaselineViewController()
+      baselineController.selectFixture(fixture)
+      navigationController.setViewControllers([baselineController], animated: false)
+    }
   }
 
   func sceneDidDisconnect(_ scene: UIScene) {
@@ -49,4 +56,3 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 
 }
-

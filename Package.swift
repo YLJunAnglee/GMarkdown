@@ -125,6 +125,12 @@ let package = Package(
     ),
     .testTarget(
       name: "GMarkdownTests",
-      dependencies: ["GMarkdown"]),
+      dependencies: [
+        "GMarkdown",
+        .product(name: "Markdown", package: "swift-markdown"),
+      ],
+      resources: [
+        .copy("Fixtures"),
+      ]),
   ]
 )

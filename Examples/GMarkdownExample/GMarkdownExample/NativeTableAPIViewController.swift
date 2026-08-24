@@ -30,6 +30,7 @@ final class NativeTableAPIViewController: UIViewController {
     private var tableHeightConstraint: NSLayoutConstraint!
     private var selectedFixture: NativeTableAPIFixture = .a
     private var lastRenderedWidth: CGFloat = 0
+    private var renderTask: NativeMarkdownTableRenderTask?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -115,26 +116,45 @@ final class NativeTableAPIViewController: UIViewController {
         lastRenderedWidth = width
 
         guard let markdown = markdown(for: selectedFixture) else {
+            renderTask?.cancel()
             tableView.clear()
             tableHeightConstraint.constant = 0
             resultLabel.text = "Fixture \(selectedFixture.rawValue) could not be loaded."
             return
         }
 
-        let result = tableView.render(markdown: markdown, containerWidth: width)
+        let fixture = selectedFixture
+        renderTask = tableView.renderAsync(markdown: markdown, containerWidth: width) { [weak self] result in
+            self?.apply(result, fixture: fixture)
+        }
+    }
+
+    private func apply(_ result: NativeMarkdownTableRenderResult, fixture: NativeTableAPIFixture) {
         switch result {
         case let .success(metrics):
             tableHeightConstraint.constant = metrics.requiredSize.height
+            let performance = metrics.performance
             resultLabel.text = [
-                "Fixture \(selectedFixture.rawValue) • public NativeMarkdownTableView",
+                "Fixture \(fixture.rawValue) • public NativeMarkdownTableView",
                 "Columns \(metrics.columnCount) • body rows \(metrics.bodyRowCount)",
                 "Required size \(String(format: "%.1f", metrics.requiredSize.width)) × \(String(format: "%.1f", metrics.requiredSize.height))pt",
-                "No Chunk / Visitor / internal Cell exposed",
+                "Cache \(performance.cacheHit ? "hit" : "miss") • parse \(milliseconds(performance.parseDuration))ms • formula \(milliseconds(performance.formulaRenderDuration))ms",
+                "Layout \(milliseconds(performance.layoutDuration))ms • total \(milliseconds(performance.totalDuration))ms • ΔH \(heightDelta(metrics.heightDelta))",
+                "Warnings \(metrics.warnings.count) • cancellable reuse-safe task",
             ].joined(separator: "\n")
         case let .failure(failure):
             tableHeightConstraint.constant = 0
-            resultLabel.text = "Fixture \(selectedFixture.rawValue) failed: \(failure)"
+            resultLabel.text = "Fixture \(fixture.rawValue) failed: \(failure)"
         }
+    }
+
+    private func milliseconds(_ duration: TimeInterval) -> String {
+        String(format: "%.2f", duration * 1_000)
+    }
+
+    private func heightDelta(_ value: CGFloat?) -> String {
+        guard let value else { return "first" }
+        return String(format: "%+.1fpt", value)
     }
 
     private func markdown(for fixture: NativeTableAPIFixture) -> String? {

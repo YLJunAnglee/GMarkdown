@@ -19,6 +19,10 @@ public struct GMarkupVisitor: MarkupVisitor {
     public var ignoreLatex: Bool = false
     public var beginLatex: Bool = false
     public var beginSupTag: Bool = false
+    /// Number of LaTeX fragments that fell back to plain text during this visit.
+    public private(set) var latexFailureCount: Int = 0
+    /// Time spent in the LaTeX renderer during this visit.
+    public private(set) var latexRenderDuration: TimeInterval = 0
     
     private let style: Style
     public var referLoader: ReferLoader?
@@ -176,11 +180,14 @@ extension GMarkupVisitor {
 extension GMarkupVisitor {
     
     private mutating func processLatexText(_ text: Text) -> NSAttributedString {
+        let start = ProcessInfo.processInfo.systemUptime
         let renderResult = GMarkLaTexRender.renderLatexSmart(from: text.plainText, style: style)
+        latexRenderDuration += ProcessInfo.processInfo.systemUptime - start
         
         if renderResult.success, let image = renderResult.image {
             return createLatexImageAttributedString(image: image)
         } else {
+            latexFailureCount += 1
             return createDefaultAttributedString(from: text.plainText)
         }
     }
@@ -468,7 +475,6 @@ private struct Renderer {
         }
     }
 }
-
 
 
 

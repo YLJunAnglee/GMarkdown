@@ -115,6 +115,75 @@ final class GMarkTableLayoutTests: XCTestCase {
         XCTAssertFalse(fittingTableView.brScrollView.isScrollEnabled)
         XCTAssertFalse(fittingTableView.brScrollView.showsHorizontalScrollIndicator)
     }
+
+    func testLatexImageCacheSeparatesFontAndColor() throws {
+        GMarkCachedManager.shared.clearLatexCache()
+        var blackStyle = MarkdownStyle.defaultStyle()
+        blackStyle.fonts.current = .systemFont(ofSize: 18)
+        blackStyle.colors.current = .black
+        var redStyle = MarkdownStyle.defaultStyle()
+        redStyle.fonts.current = .systemFont(ofSize: 24)
+        redStyle.colors.current = .systemRed
+
+        let black = GMarkLaTexRender.renderLatexSmart(from: "$x+1$", style: blackStyle)
+        let red = GMarkLaTexRender.renderLatexSmart(from: "$x+1$", style: redStyle)
+
+        let blackImage = try XCTUnwrap(black.image)
+        let redImage = try XCTUnwrap(red.image)
+        XCTAssertFalse(blackImage === redImage)
+        XCTAssertNotEqual(blackImage.size, redImage.size)
+    }
+
+    func testNativeTableCacheKeySeparatesFontThemeAndDisplayScale() {
+        let markdown = "| A |\n| --- |\n| 1 |"
+        var defaultStyle = MarkdownStyle.defaultStyle()
+        var largerFontStyle = MarkdownStyle.defaultStyle()
+        largerFontStyle.fonts.current = .systemFont(ofSize: 24)
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+
+        let base = NativeMarkdownTableRenderCacheKey(
+            markdown: markdown,
+            containerWidth: 370,
+            style: defaultStyle,
+            traits: lightTraits,
+            displayScale: 2
+        )
+        let largerFont = NativeMarkdownTableRenderCacheKey(
+            markdown: markdown,
+            containerWidth: 370,
+            style: largerFontStyle,
+            traits: lightTraits,
+            displayScale: 2
+        )
+        defaultStyle.colors.current = .systemRed
+        let changedColor = NativeMarkdownTableRenderCacheKey(
+            markdown: markdown,
+            containerWidth: 370,
+            style: defaultStyle,
+            traits: lightTraits,
+            displayScale: 2
+        )
+        let darkTheme = NativeMarkdownTableRenderCacheKey(
+            markdown: markdown,
+            containerWidth: 370,
+            style: largerFontStyle,
+            traits: darkTraits,
+            displayScale: 2
+        )
+        let changedScale = NativeMarkdownTableRenderCacheKey(
+            markdown: markdown,
+            containerWidth: 370,
+            style: largerFontStyle,
+            traits: lightTraits,
+            displayScale: 3
+        )
+
+        XCTAssertNotEqual(base, largerFont)
+        XCTAssertNotEqual(base, changedColor)
+        XCTAssertNotEqual(largerFont, darkTheme)
+        XCTAssertNotEqual(largerFont, changedScale)
+    }
 }
 
 private extension GMarkTableLayoutTests {

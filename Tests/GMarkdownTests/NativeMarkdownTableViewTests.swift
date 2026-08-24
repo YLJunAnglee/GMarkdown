@@ -2,6 +2,11 @@ import GMarkdown
 import XCTest
 
 final class NativeMarkdownTableViewTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        NativeMarkdownTableView.clearRenderCache()
+    }
+
     func testRendersOneTableWithoutExposingInternalTypes() throws {
         let view = NativeMarkdownTableView()
         let result = view.render(
@@ -101,6 +106,22 @@ final class NativeMarkdownTableViewTests: XCTestCase {
         XCTAssertEqual(view.intrinsicContentSize, .zero)
     }
 
+    func testReturnsExplicitFailureForInvalidCalculatedSize() throws {
+        var tableStyle = DefaultTableStyle()
+        tableStyle.padding.top = .infinity
+        var style = MarkdownStyle.defaultStyle()
+        style.tableStyle = tableStyle
+
+        XCTAssertEqual(
+            NativeMarkdownTableView().render(
+                markdown: try fixture(named: "table_short"),
+                style: style,
+                containerWidth: 370
+            ),
+            .failure(.invalidCalculatedSize)
+        )
+    }
+
     func testClearRemovesTheCurrentRenderResult() throws {
         let view = NativeMarkdownTableView()
         XCTAssertTrue(
@@ -109,6 +130,107 @@ final class NativeMarkdownTableViewTests: XCTestCase {
 
         view.clear()
 
+        XCTAssertEqual(view.lastRenderResult, .failure(.emptyMarkdown))
+        XCTAssertEqual(view.intrinsicContentSize, .zero)
+    }
+
+    func testRepeatedRenderUsesCacheAndRecordsStableHeight() throws {
+        let view = NativeMarkdownTableView()
+        let markdown = try fixture(named: "table_short")
+
+        let first = try XCTUnwrap(view.render(markdown: markdown, containerWidth: 370).metrics)
+        let second = try XCTUnwrap(view.render(markdown: markdown, containerWidth: 370).metrics)
+
+        XCTAssertFalse(first.performance.cacheHit)
+        XCTAssertGreaterThanOrEqual(first.performance.parseDuration, 0)
+        XCTAssertGreaterThanOrEqual(first.performance.formulaRenderDuration, 0)
+        XCTAssertGreaterThanOrEqual(first.performance.layoutDuration, 0)
+        XCTAssertGreaterThanOrEqual(first.performance.totalDuration, 0)
+        XCTAssertTrue(second.performance.cacheHit)
+        XCTAssertEqual(second.performance.parseDuration, 0)
+        XCTAssertEqual(second.performance.formulaRenderDuration, 0)
+        XCTAssertEqual(second.performance.layoutDuration, 0)
+        XCTAssertEqual(second.heightDelta, 0)
+        XCTAssertEqual(first.requiredSize, second.requiredSize)
+        XCTAssertTrue(second.warnings.isEmpty)
+    }
+
+    func testCacheSeparatesContentWidthAndStyle() throws {
+        let view = NativeMarkdownTableView()
+        let shortTable = try fixture(named: "table_short")
+        let wideTable = try fixture(named: "table_five_columns")
+
+        XCTAssertFalse(
+            try XCTUnwrap(view.render(markdown: shortTable, containerWidth: 370).metrics)
+                .performance.cacheHit
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(view.render(markdown: shortTable, containerWidth: 280).metrics)
+                .performance.cacheHit
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(view.render(markdown: wideTable, containerWidth: 280).metrics)
+                .performance.cacheHit
+        )
+
+        var tableStyle = DefaultTableStyle()
+        tableStyle.headerBackgroundColor = .systemRed
+        var style = MarkdownStyle.defaultStyle()
+        style.tableStyle = tableStyle
+        XCTAssertFalse(
+            try XCTUnwrap(
+                view.render(markdown: shortTable, style: style, containerWidth: 370).metrics
+            ).performance.cacheHit
+        )
+        XCTAssertTrue(
+            try XCTUnwrap(
+                view.render(markdown: shortTable, style: style, containerWidth: 370).metrics
+            ).performance.cacheHit
+        )
+    }
+
+    func testNewestAsyncRenderWinsDuringViewReuse() throws {
+        let view = NativeMarkdownTableView()
+        let staleCompletion = expectation(description: "obsolete render must not complete")
+        staleCompletion.isInverted = true
+        let newestCompletion = expectation(description: "newest render completes")
+
+        let staleTask = view.renderAsync(
+            markdown: try fixture(named: "table_five_columns"),
+            containerWidth: 370
+        ) { _ in
+            staleCompletion.fulfill()
+        }
+        _ = view.renderAsync(
+            markdown: try fixture(named: "table_short"),
+            containerWidth: 280
+        ) { result in
+            XCTAssertEqual(result.metrics?.columnCount, 4)
+            XCTAssertEqual(result.metrics?.requiredSize.width, 280)
+            newestCompletion.fulfill()
+        }
+
+        XCTAssertTrue(staleTask.isCancelled)
+        wait(for: [newestCompletion, staleCompletion], timeout: 0.2)
+        XCTAssertEqual(view.lastRenderResult.metrics?.columnCount, 4)
+        XCTAssertEqual(view.intrinsicContentSize.width, 280)
+    }
+
+    func testClearCancelsPendingAsyncWriteBack() throws {
+        let view = NativeMarkdownTableView()
+        let obsoleteCompletion = expectation(description: "cleared render must not complete")
+        obsoleteCompletion.isInverted = true
+        let task = view.renderAsync(
+            markdown: try fixture(named: "table_short"),
+            containerWidth: 370
+        ) { _ in
+            obsoleteCompletion.fulfill()
+        }
+
+        view.clear()
+
+        XCTAssertTrue(task.isCancelled)
+        wait(for: [obsoleteCompletion], timeout: 0.1)
         XCTAssertEqual(view.lastRenderResult, .failure(.emptyMarkdown))
         XCTAssertEqual(view.intrinsicContentSize, .zero)
     }

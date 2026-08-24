@@ -9,6 +9,36 @@ public enum NativeMarkdownTableRenderFailure: Error, Equatable {
     case tableNotFound
     case multipleTables(count: Int)
     case containsUnsupportedContent
+    case invalidCalculatedSize
+}
+
+/// A non-fatal issue. Rendering succeeds, but callers may choose a different renderer.
+public enum NativeMarkdownTableRenderWarning: Equatable {
+    /// One or more LaTeX fragments could not be rendered and were shown as plain text.
+    case formulaFallback(count: Int)
+}
+
+/// Timing information for one render request.
+public struct NativeMarkdownTableRenderPerformance: Equatable {
+    public let parseDuration: TimeInterval
+    public let formulaRenderDuration: TimeInterval
+    public let layoutDuration: TimeInterval
+    public let totalDuration: TimeInterval
+    public let cacheHit: Bool
+
+    public init(
+        parseDuration: TimeInterval = 0,
+        formulaRenderDuration: TimeInterval = 0,
+        layoutDuration: TimeInterval = 0,
+        totalDuration: TimeInterval = 0,
+        cacheHit: Bool = false
+    ) {
+        self.parseDuration = parseDuration
+        self.formulaRenderDuration = formulaRenderDuration
+        self.layoutDuration = layoutDuration
+        self.totalDuration = totalDuration
+        self.cacheHit = cacheHit
+    }
 }
 
 /// Public, implementation-independent information about a rendered table.
@@ -16,52 +46,79 @@ public struct NativeMarkdownTableRenderMetrics: Equatable {
     public let columnCount: Int
     public let bodyRowCount: Int
     public let requiredSize: CGSize
+    public let warnings: [NativeMarkdownTableRenderWarning]
+    public let performance: NativeMarkdownTableRenderPerformance
+    /// Difference from the previously displayed successful table height. Nil on first render.
+    public let heightDelta: CGFloat?
 
-    public init(columnCount: Int, bodyRowCount: Int, requiredSize: CGSize) {
+    public init(
+        columnCount: Int,
+        bodyRowCount: Int,
+        requiredSize: CGSize,
+        warnings: [NativeMarkdownTableRenderWarning] = [],
+        performance: NativeMarkdownTableRenderPerformance = .init(),
+        heightDelta: CGFloat? = nil
+    ) {
         self.columnCount = columnCount
         self.bodyRowCount = bodyRowCount
         self.requiredSize = requiredSize
+        self.warnings = warnings
+        self.performance = performance
+        self.heightDelta = heightDelta
     }
 }
 
-/// The synchronous result of preparing a native Markdown table.
+/// The result of preparing a native Markdown table.
 public enum NativeMarkdownTableRenderResult: Equatable {
     case success(NativeMarkdownTableRenderMetrics)
     case failure(NativeMarkdownTableRenderFailure)
 
     public var isSuccess: Bool {
-        if case .success = self {
-            return true
-        }
+        if case .success = self { return true }
         return false
     }
 
     public var metrics: NativeMarkdownTableRenderMetrics? {
-        guard case let .success(metrics) = self else {
-            return nil
-        }
+        guard case let .success(metrics) = self else { return nil }
         return metrics
     }
 
     public var failure: NativeMarkdownTableRenderFailure? {
-        guard case let .failure(failure) = self else {
-            return nil
-        }
+        guard case let .failure(failure) = self else { return nil }
         return failure
     }
 }
 
-/// A standalone native renderer for one Markdown table block.
+/// A cooperative cancellation token returned by `renderAsync`.
 ///
-/// This view intentionally hides parser, chunk, visitor, and cell implementation details.
-/// Inputs containing no table, multiple tables, or other top-level Markdown content return
-/// an explicit failure so a host application can fall back to another renderer.
+/// Cancellation prevents an obsolete request from changing the view or invoking completion.
+/// Rendering remains on the main thread because the underlying UIKit renderers are not Sendable.
+public final class NativeMarkdownTableRenderTask {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    public var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    public func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+}
+
+/// A standalone native renderer for one Markdown table block.
 public final class NativeMarkdownTableView: UIView {
     public private(set) var lastRenderResult: NativeMarkdownTableRenderResult = .failure(.emptyMarkdown)
 
     private let tableView = GMarkTableView()
     private let tableDataSource = NativeMarkdownTableDataSource()
     private var renderedStyle = MarkdownStyle.defaultStyle()
+    private let taskLock = NSLock()
+    private var activeRenderTask: NativeMarkdownTableRenderTask?
 
     override public init(frame: CGRect) {
         super.init(frame: frame)
@@ -73,81 +130,208 @@ public final class NativeMarkdownTableView: UIView {
         setupTableView()
     }
 
+    deinit {
+        cancelActiveRenderTask()
+    }
+
     override public var intrinsicContentSize: CGSize {
-        guard let metrics = lastRenderResult.metrics else {
-            return .zero
-        }
-        return metrics.requiredSize
+        lastRenderResult.metrics?.requiredSize ?? .zero
     }
 
     override public func layoutSubviews() {
         super.layoutSubviews()
-        let padding = renderedStyle.tableStyle.padding
-        tableView.frame = bounds.inset(by: padding)
+        tableView.frame = bounds.inset(by: renderedStyle.tableStyle.padding)
     }
 
-    /// Parses and renders exactly one top-level Markdown table.
-    ///
-    /// - Parameters:
-    ///   - markdown: The original Markdown table source. It is never modified by this view.
-    ///   - style: The Markdown and table style used for parsing, measuring, and rendering.
-    ///   - containerWidth: The available outer width, including table padding.
-    /// - Returns: Public metrics on success, or a failure suitable for renderer fallback.
+    /// Parses and renders exactly one top-level Markdown table synchronously.
+    /// Call this UIKit API on the main thread.
     @discardableResult
     public func render(
         markdown: String,
         style: MarkdownStyle = .defaultStyle(),
         containerWidth: CGFloat
     ) -> NativeMarkdownTableRenderResult {
+        cancelActiveRenderTask()
+        return prepareAndApply(
+            markdown: markdown,
+            style: style,
+            containerWidth: containerWidth,
+            shouldApply: { true }
+        ) ?? .failure(.emptyMarkdown)
+    }
+
+    /// Schedules a cancellable render on the main queue.
+    ///
+    /// Starting another render or calling `clear()` invalidates the previous task. An obsolete
+    /// request never writes its result back into a reused view and does not invoke completion.
+    @discardableResult
+    public func renderAsync(
+        markdown: String,
+        style: MarkdownStyle = .defaultStyle(),
+        containerWidth: CGFloat,
+        completion: @escaping (NativeMarkdownTableRenderResult) -> Void
+    ) -> NativeMarkdownTableRenderTask {
+        let task = NativeMarkdownTableRenderTask()
+        activate(task)
+
+        DispatchQueue.main.async { [weak self, weak task] in
+            guard let self, let task, self.isActive(task) else { return }
+            let result = self.prepareAndApply(
+                markdown: markdown,
+                style: style,
+                containerWidth: containerWidth,
+                shouldApply: { [weak self, weak task] in
+                    guard let self, let task else { return false }
+                    return self.isActive(task)
+                }
+            )
+            guard let result, self.complete(task) else { return }
+            completion(result)
+        }
+        return task
+    }
+
+    /// Removes all native table layout entries shared by renderer instances.
+    public static func clearRenderCache() {
+        NativeMarkdownTableRenderCache.shared.removeAll()
+    }
+
+    /// Removes the current table, cancels pending work, and returns to the initial empty state.
+    public func clear() {
+        cancelActiveRenderTask()
+        _ = finish(with: .failure(.emptyMarkdown))
+    }
+
+    private func prepareAndApply(
+        markdown: String,
+        style: MarkdownStyle,
+        containerWidth: CGFloat,
+        shouldApply: () -> Bool
+    ) -> NativeMarkdownTableRenderResult? {
+        let totalStart = ProcessInfo.processInfo.systemUptime
         guard containerWidth.isFinite, containerWidth > 0 else {
-            return finish(with: .failure(.invalidContainerWidth))
+            return shouldApply() ? finish(with: .failure(.invalidContainerWidth)) : nil
         }
         guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return finish(with: .failure(.emptyMarkdown))
-        }
-
-        let markups = GMarkParser().parseMarkdownToMarkups(markdown: markdown)
-        let tables = markups.compactMap { $0 as? Table }
-
-        guard !tables.isEmpty else {
-            return finish(with: .failure(.tableNotFound))
-        }
-        guard tables.count == 1 else {
-            return finish(with: .failure(.multipleTables(count: tables.count)))
-        }
-        guard markups.count == 1, markups.first is Table else {
-            return finish(with: .failure(.containsUnsupportedContent))
+            return shouldApply() ? finish(with: .failure(.emptyMarkdown)) : nil
         }
 
         var resolvedStyle = style
         resolvedStyle.maxContainerWidth = containerWidth
         resolvedStyle.useMPTextKit = true
+        let cacheKey = NativeMarkdownTableRenderCacheKey(
+            markdown: markdown,
+            containerWidth: containerWidth,
+            style: resolvedStyle,
+            traits: traitCollection,
+            displayScale: resolvedDisplayScale
+        )
+
+        if let prepared = NativeMarkdownTableRenderCache.shared.value(for: cacheKey) {
+            guard shouldApply() else { return nil }
+            return apply(
+                prepared,
+                style: resolvedStyle,
+                parseDuration: 0,
+                layoutDuration: 0,
+                totalStart: totalStart,
+                cacheHit: true
+            )
+        }
+
+        let parseStart = ProcessInfo.processInfo.systemUptime
+        let markups = GMarkParser().parseMarkdownToMarkups(markdown: markdown)
+        let parseDuration = ProcessInfo.processInfo.systemUptime - parseStart
+        let tables = markups.compactMap { $0 as? Table }
+
+        guard !tables.isEmpty else {
+            return shouldApply() ? finish(with: .failure(.tableNotFound)) : nil
+        }
+        guard tables.count == 1 else {
+            return shouldApply() ? finish(with: .failure(.multipleTables(count: tables.count))) : nil
+        }
+        guard markups.count == 1, markups.first is Table else {
+            return shouldApply() ? finish(with: .failure(.containsUnsupportedContent)) : nil
+        }
 
         var visitor = GMarkupTableVisitor(style: resolvedStyle)
         let table = tables[0]
         let markTable = visitor.visit(table)
+        let layoutStart = ProcessInfo.processInfo.systemUptime
         let layout = GMarkTableLayout(markTable: markTable, style: resolvedStyle)
-        let metrics = NativeMarkdownTableRenderMetrics(
+        let layoutDuration = ProcessInfo.processInfo.systemUptime - layoutStart
+        let requiredSize = CGSize(width: containerWidth, height: layout.tableHeight)
+        guard requiredSize.width.isFinite,
+              requiredSize.height.isFinite,
+              requiredSize.width > 0,
+              requiredSize.height > 0,
+              layout.tableContentSize.width.isFinite,
+              layout.tableContentSize.height.isFinite else {
+            return shouldApply() ? finish(with: .failure(.invalidCalculatedSize)) : nil
+        }
+
+        let warnings: [NativeMarkdownTableRenderWarning] = markTable.latexFailureCount > 0
+            ? [.formulaFallback(count: markTable.latexFailureCount)]
+            : []
+        let prepared = PreparedNativeMarkdownTableRender(
+            layout: layout,
             columnCount: table.maxColumnCount,
             bodyRowCount: Array(table.body.rows).count,
-            requiredSize: CGSize(width: containerWidth, height: layout.tableHeight)
+            requiredSize: requiredSize,
+            warnings: warnings,
+            formulaRenderDuration: markTable.latexRenderDuration
         )
+        guard shouldApply() else { return nil }
+        NativeMarkdownTableRenderCache.shared.insert(prepared, for: cacheKey)
+        return apply(
+            prepared,
+            style: resolvedStyle,
+            parseDuration: parseDuration,
+            layoutDuration: layoutDuration,
+            totalStart: totalStart,
+            cacheHit: false
+        )
+    }
 
-        renderedStyle = resolvedStyle
-        tableDataSource.update(tableLayout: layout, style: resolvedStyle)
-        tableView.style = GMarkTableStyle.markdownStyle(from: resolvedStyle.tableStyle)
+    private func apply(
+        _ prepared: PreparedNativeMarkdownTableRender,
+        style: MarkdownStyle,
+        parseDuration: TimeInterval,
+        layoutDuration: TimeInterval,
+        totalStart: TimeInterval,
+        cacheHit: Bool
+    ) -> NativeMarkdownTableRenderResult {
+        let previousHeight = lastRenderResult.metrics?.requiredSize.height
+        renderedStyle = style
+        tableDataSource.update(tableLayout: prepared.layout, style: style)
+        tableView.style = GMarkTableStyle.markdownStyle(from: style.tableStyle)
         tableView.isHidden = false
         tableView.reloadData()
         setNeedsLayout()
-        invalidateIntrinsicContentSize()
 
+        let performance = NativeMarkdownTableRenderPerformance(
+            parseDuration: parseDuration,
+            formulaRenderDuration: cacheHit ? 0 : prepared.formulaRenderDuration,
+            layoutDuration: layoutDuration,
+            totalDuration: ProcessInfo.processInfo.systemUptime - totalStart,
+            cacheHit: cacheHit
+        )
+        let metrics = NativeMarkdownTableRenderMetrics(
+            columnCount: prepared.columnCount,
+            bodyRowCount: prepared.bodyRowCount,
+            requiredSize: prepared.requiredSize,
+            warnings: prepared.warnings,
+            performance: performance,
+            heightDelta: previousHeight.map { prepared.requiredSize.height - $0 }
+        )
         lastRenderResult = .success(metrics)
+        invalidateIntrinsicContentSize()
         return lastRenderResult
     }
 
-    /// Removes the current table and returns the view to its initial empty state.
-    public func clear() {
-        _ = finish(with: .failure(.emptyMarkdown))
+    private var resolvedDisplayScale: CGFloat {
+        let scale = traitCollection.displayScale
+        return scale > 0 ? scale : UIScreen.main.scale
     }
 
     private func setupTableView() {
@@ -163,6 +347,36 @@ public final class NativeMarkdownTableView: UIView {
         tableView.layer.masksToBounds = true
         tableView.isHidden = true
         addSubview(tableView)
+    }
+
+    private func activate(_ task: NativeMarkdownTableRenderTask) {
+        taskLock.lock()
+        activeRenderTask?.cancel()
+        activeRenderTask = task
+        taskLock.unlock()
+    }
+
+    private func isActive(_ task: NativeMarkdownTableRenderTask) -> Bool {
+        guard !task.isCancelled else { return false }
+        taskLock.lock()
+        defer { taskLock.unlock() }
+        return activeRenderTask === task
+    }
+
+    @discardableResult
+    private func complete(_ task: NativeMarkdownTableRenderTask) -> Bool {
+        taskLock.lock()
+        defer { taskLock.unlock() }
+        guard activeRenderTask === task, !task.isCancelled else { return false }
+        activeRenderTask = nil
+        return true
+    }
+
+    private func cancelActiveRenderTask() {
+        taskLock.lock()
+        activeRenderTask?.cancel()
+        activeRenderTask = nil
+        taskLock.unlock()
     }
 
     @discardableResult
@@ -185,25 +399,11 @@ private final class NativeMarkdownTableDataSource: NSObject, GMarkTableViewDataS
         renderedStyle = style
     }
 
-    func clear() {
-        tableLayout = nil
-    }
-
-    func numberOfRows(in _: GMarkTableView) -> Int {
-        tableRenders.count
-    }
-
-    func numberOfCols(in _: GMarkTableView) -> Int {
-        tableLayout?.columnWidths.count ?? 0
-    }
-
-    func numberOfLockingRows(in _: GMarkTableView) -> Int {
-        0
-    }
-
-    func numberOfLockingCols(in _: GMarkTableView) -> Int {
-        0
-    }
+    func clear() { tableLayout = nil }
+    func numberOfRows(in _: GMarkTableView) -> Int { tableRenders.count }
+    func numberOfCols(in _: GMarkTableView) -> Int { tableLayout?.columnWidths.count ?? 0 }
+    func numberOfLockingRows(in _: GMarkTableView) -> Int { 0 }
+    func numberOfLockingCols(in _: GMarkTableView) -> Int { 0 }
 
     func table(_: GMarkTableView, lengthForRow row: Int) -> CGFloat {
         tableLayout?.rowHeights[safe: row] ?? renderedStyle.tableStyle.cellHeight
@@ -220,9 +420,7 @@ private final class NativeMarkdownTableDataSource: NSObject, GMarkTableViewDataS
         guard let cell = table.dequeueReusableCell(
             withIdentifier: GMarkTableRichLabelCell.reuseIdentifier,
             for: indexPath
-        ) as? GMarkTableRichLabelCell else {
-            return nil
-        }
+        ) as? GMarkTableRichLabelCell else { return nil }
         guard let renderer = tableRenders[safe: indexPath.row]?[safe: indexPath.col] else {
             return GMarkTableViewCell.placeholder
         }
@@ -240,12 +438,9 @@ private final class NativeMarkdownTableDataSource: NSObject, GMarkTableViewDataS
     }
 
     private var tableRenders: [[MPITextRenderer]] {
-        guard let tableLayout else {
-            return []
-        }
+        guard let tableLayout else { return [] }
         let headers = tableLayout.headerRenders
-        let headerRows = headers.isEmpty ? [] : [headers]
-        return headerRows + tableLayout.bodyRenders
+        return (headers.isEmpty ? [] : [headers]) + tableLayout.bodyRenders
     }
 }
 

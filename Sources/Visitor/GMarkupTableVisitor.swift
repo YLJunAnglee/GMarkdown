@@ -17,6 +17,8 @@ public struct GMarkTable {
     var headers: [NSAttributedString]? = []
     var bodys: [[NSAttributedString]]? = []
     var contents: String = ""
+    var latexFailureCount: Int = 0
+    var latexRenderDuration: TimeInterval = 0
 }
 
 public struct GMarkupTableVisitor: MarkupVisitor {
@@ -63,6 +65,8 @@ public struct GMarkupTableVisitor: MarkupVisitor {
             var visitor = GMarkupVisitor(style: style)
             visitor.imageLoader = imageLoader
             let attribute = visitor.visit(child)
+            markTable.latexFailureCount += visitor.latexFailureCount
+            markTable.latexRenderDuration += visitor.latexRenderDuration
             markTable.contents += attribute.string
             headers.append(attribute)
         }
@@ -95,6 +99,8 @@ public struct GMarkupTableVisitor: MarkupVisitor {
             var visitor = GMarkupVisitor(style: style)
             visitor.imageLoader = imageLoader
             let attribute = visitor.visit(child)
+            markTable.latexFailureCount += visitor.latexFailureCount
+            markTable.latexRenderDuration += visitor.latexRenderDuration
             markTable.contents += attribute.string
             rows.append(attribute)
         }

@@ -77,14 +77,23 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
             // Skip if content is too large (potential security issue)
             guard matchedString.count < 3000 else { continue }
             
-            let wrappedString = wrapLaTeX(matchedString)
+            let wrappedString = wrapLaTeX(
+                matchedString,
+                preserveLineStructure: isInsideMarkdownTable(matchRange, in: nsString)
+            )
             result = (result as NSString).replacingCharacters(in: matchRange, with: wrappedString)
         }
         
         return result
     }
     
-    private func wrapLaTeX(_ content: String) -> String {
+    private func wrapLaTeX(_ content: String, preserveLineStructure: Bool) -> String {
+        // A newline inside a GFM table cell ends the current row. Keep even long
+        // expressions inline here so preprocessing cannot change the table shape.
+        if preserveLineStructure {
+            return "<LaTex>\(content)</LaTex>"
+        }
+
         let lines = content.components(separatedBy: .newlines)
         
         if lines.count > 1 || content.count > 30 {
@@ -94,6 +103,111 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
             // Inline expressions
             return "<LaTex>\(content)</LaTex>"
         }
+    }
+
+    private func isInsideMarkdownTable(_ matchRange: NSRange, in markdown: NSString) -> Bool {
+        let matchedString = markdown.substring(with: matchRange)
+        guard matchedString.rangeOfCharacter(from: .newlines) == nil else {
+            return false
+        }
+
+        let lineRange = markdown.lineRange(for: matchRange)
+        let line = markdown.substring(with: lineRange)
+        guard containsUnescapedPipe(line) else {
+            return false
+        }
+
+        // A header row is followed immediately by the table delimiter row.
+        let nextLineLocation = NSMaxRange(lineRange)
+        if nextLineLocation < markdown.length {
+            let nextLineRange = markdown.lineRange(
+                for: NSRange(location: nextLineLocation, length: 0)
+            )
+            if isMarkdownTableDelimiter(markdown.substring(with: nextLineRange)) {
+                return true
+            }
+        }
+
+        // A body row belongs to a table when its preceding contiguous pipe rows
+        // eventually reach the delimiter row.
+        var previousLineLocation = lineRange.location
+        while previousLineLocation > 0 {
+            let previousLineRange = markdown.lineRange(
+                for: NSRange(location: previousLineLocation - 1, length: 0)
+            )
+            let previousLine = markdown.substring(with: previousLineRange)
+
+            if isMarkdownTableDelimiter(previousLine) {
+                return true
+            }
+            guard containsUnescapedPipe(previousLine) else {
+                return false
+            }
+
+            previousLineLocation = previousLineRange.location
+        }
+
+        return false
+    }
+
+    private func isMarkdownTableDelimiter(_ line: String) -> Bool {
+        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard containsUnescapedPipe(trimmedLine) else {
+            return false
+        }
+
+        var cells = splitOnUnescapedPipes(trimmedLine)
+        if cells.first?.isEmpty == true {
+            cells.removeFirst()
+        }
+        if cells.last?.isEmpty == true {
+            cells.removeLast()
+        }
+
+        guard !cells.isEmpty else {
+            return false
+        }
+
+        return cells.allSatisfy { cell in
+            let delimiter = cell.trimmingCharacters(in: .whitespaces)
+            guard !delimiter.isEmpty else { return false }
+
+            let withoutLeadingColon = delimiter.first == ":" ? String(delimiter.dropFirst()) : delimiter
+            let hyphens = withoutLeadingColon.last == ":"
+                ? String(withoutLeadingColon.dropLast())
+                : withoutLeadingColon
+
+            return hyphens.count >= 3 && hyphens.allSatisfy { $0 == "-" }
+        }
+    }
+
+    private func containsUnescapedPipe(_ text: String) -> Bool {
+        splitOnUnescapedPipes(text).count > 1
+    }
+
+    private func splitOnUnescapedPipes(_ text: String) -> [String] {
+        var result = [String]()
+        var current = ""
+        var consecutiveBackslashes = 0
+
+        for character in text {
+            if character == "|" && consecutiveBackslashes.isMultiple(of: 2) {
+                result.append(current)
+                current = ""
+                consecutiveBackslashes = 0
+                continue
+            }
+
+            current.append(character)
+            if character == "\\" {
+                consecutiveBackslashes += 1
+            } else {
+                consecutiveBackslashes = 0
+            }
+        }
+
+        result.append(current)
+        return result
     }
 }
 

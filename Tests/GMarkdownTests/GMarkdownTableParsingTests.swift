@@ -57,7 +57,7 @@ final class GMarkdownTableParsingTests: XCTestCase {
         XCTAssertTrue(rows[0][2].contains("删除线"))
     }
 
-    func testLongLatexCurrentlyChangesTableStructureDuringPreprocessing() throws {
+    func testLongLatexKeepsTableStructureDuringPreprocessing() throws {
         let markdown = try fixture(named: "table_edge_cases")
         let longLatexMarkdown = try section(named: "Known long LaTeX issue", in: markdown)
 
@@ -68,11 +68,40 @@ final class GMarkdownTableParsingTests: XCTestCase {
         let processedShape = tableShape(processedTable)
 
         XCTAssertEqual(rawShape, TableShape(columns: 3, bodyRows: 2, cellsPerRow: [3, 3]))
+        XCTAssertEqual(processedShape, rawShape)
+
+        let processedRows = Array(processedTable.body.rows)
+        let longFormulaRow = try XCTUnwrap(processedRows.last)
+        XCTAssertEqual(Array(longFormulaRow.cells).map { markupText($0) }, [
+            "长公式",
+            "<LaTex>$\\frac{x_1+x_2+x_3+x_4+x_5}{y_1+y_2+y_3+y_4+y_5}$</LaTex>",
+            "当前预处理会插入换行",
+        ])
+    }
+
+    func testLongLatexInTableHeaderKeepsTableStructure() throws {
+        let expression = "$\\frac{x_1+x_2+x_3+x_4+x_5}{y_1+y_2+y_3+y_4+y_5}$"
+        let markdown = """
+        | \(expression) | 备注 |
+        | --- | --- |
+        | 结果 | 正常 |
+        """
+
+        let table = try parseSingleTable(markdown: markdown)
+        XCTAssertEqual(tableShape(table), TableShape(columns: 2, bodyRows: 1, cellsPerRow: [2]))
         XCTAssertEqual(
-            processedShape,
-            TableShape(columns: 3, bodyRows: 4, cellsPerRow: [3, 3, 3, 3]),
-            "Known issue: LaTeX longer than 30 characters inserts line breaks and damages the table. " +
-                "Step 4 should assert that processedShape equals rawShape after fixing the preprocessor."
+            markupText(try XCTUnwrap(Array(table.head.cells).first)),
+            "<LaTex>\(expression)</LaTex>"
+        )
+    }
+
+    func testLongLatexOutsideTableKeepsExistingBlockFormatting() {
+        let expression = "$\\frac{x_1+x_2+x_3+x_4+x_5}{y_1+y_2+y_3+y_4+y_5}$"
+        let markdown = "正文 A | B 中的长公式 \(expression) 结束"
+
+        XCTAssertEqual(
+            LaTeXPreprocessor().process(markdown),
+            "正文 A | B 中的长公式 \n <LaTex>\(expression)</LaTex> \n 结束"
         )
     }
 

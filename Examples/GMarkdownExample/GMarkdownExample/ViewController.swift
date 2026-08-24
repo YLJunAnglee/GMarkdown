@@ -106,6 +106,12 @@ class ViewController: UIViewController {
     
     private let examples: [ExampleItem] = [
         ExampleItem(
+            title: "Native TABLE API",
+            description: "Renders one TABLE through the public API without exposing internal chunks or cells",
+            icon: "rectangle.grid.2x2",
+            viewController: NativeTableAPIViewController.self
+        ),
+        ExampleItem(
             title: "TABLE Baseline",
             description: "Records the unmodified table renderer with fixed fixtures and timing samples",
             icon: "tablecells",

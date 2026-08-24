@@ -23,6 +23,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
       let baselineController = TableBaselineViewController()
       baselineController.selectFixture(fixture)
       navigationController.setViewControllers([baselineController], animated: false)
+    } else if let fixture = NativeTableAPIViewController.fixtureFromProcessArguments(ProcessInfo.processInfo.arguments),
+              let navigationController = window?.rootViewController as? UINavigationController {
+      let apiController = NativeTableAPIViewController()
+      apiController.selectFixture(fixture)
+      navigationController.setViewControllers([apiController], animated: false)
     }
   }
 

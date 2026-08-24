@@ -30,6 +30,7 @@
 		B45100000000000000000002 /* table_baseline_a.md in Resources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000002 /* table_baseline_a.md */; };
 		B45100000000000000000003 /* table_baseline_b.md in Resources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000003 /* table_baseline_b.md */; };
 		B45100000000000000000004 /* table_baseline_c.md in Resources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000004 /* table_baseline_c.md */; };
+		B45100000000000000000005 /* NativeTableAPIViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45200000000000000000005 /* NativeTableAPIViewController.swift */; };
 		F9786C3F04498F7DBF2CE17F /* GMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = D59A22C634C0FF0E460754BE /* GMarkdown */; };
 /* End PBXBuildFile section */
 
@@ -58,6 +59,7 @@
 		B45200000000000000000002 /* table_baseline_a.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = table_baseline_a.md; sourceTree = "<group>"; };
 		B45200000000000000000003 /* table_baseline_b.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = table_baseline_b.md; sourceTree = "<group>"; };
 		B45200000000000000000004 /* table_baseline_c.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = table_baseline_c.md; sourceTree = "<group>"; };
+		B45200000000000000000005 /* NativeTableAPIViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTableAPIViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +123,7 @@
 				D76B57722F3D40404987BA64 /* SceneDelegate.swift */,
 				DB231D7527DBBE4BA252BC18 /* TextViewViewController.swift */,
 				B45200000000000000000001 /* TableBaselineViewController.swift */,
+				B45200000000000000000005 /* NativeTableAPIViewController.swift */,
 				2B6C0D2C2E0F0B8A00F6D641 /* RealTimeRenderController.swift */,
 				4D4F40CB2FCF10C84C18B559 /* ViewController.swift */,
 			);
@@ -219,6 +222,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B45100000000000000000005 /* NativeTableAPIViewController.swift in Sources */,
 				B45100000000000000000001 /* TableBaselineViewController.swift in Sources */,
 				3990ACD55BC5C22064C6B29D /* AppDelegate.swift in Sources */,
 				95C5C3ED71581EF51445984A /* MarkdownRenderController.swift in Sources */,

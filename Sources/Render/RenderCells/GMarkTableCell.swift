@@ -33,7 +33,7 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        table.backgroundColor = .white
+        table.backgroundColor = .clear
         table.register(GMarkTableRichLabelCell.self, forCellReuseIdentifier: "GMarkTableRichLabelCell")
         table.dataSource = self
         table.style = style
@@ -54,6 +54,7 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
 
     func configure(with chunk: GMarkChunk) {
         markChunk = chunk
+        table.style = GMarkTableStyle.markdownStyle(from: tableStyle)
         table.reloadData()
     }
 
@@ -90,7 +91,7 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
     }
 
     func numberOfCols(in _: GMarkTableView) -> Int {
-        return headerRenders().count
+        return markChunk?.tableRender?.columnWidths.count ?? 0
     }
 
     func numberOfLockingRows(in _: GMarkTableView) -> Int {
@@ -102,29 +103,11 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
     }
 
     func table(_: GMarkTableView, lengthForRow row: Int) -> CGFloat {
-        var height: CGFloat = tableStyle.cellHeight
-        let renderArray = tableRenders()
-        if let renders = renderArray[safe: row] {
-            for textRender in renders {
-                let textheight = textRender.size().height
-                height = max(height, textheight + tableStyle.cellPadding.top + tableStyle.cellPadding.bottom)
-            }
-        }
-        return max(height, tableStyle.cellHeight)
+        return markChunk?.tableRender?.rowHeights[safe: row] ?? tableStyle.cellHeight
     }
 
     func table(_: GMarkTableView, lengthForCol col: Int) -> CGFloat {
-        let renderArray = tableRenders()
-        var maxColWidth: CGFloat = 0
-        for row in renderArray {
-            if col < row.count {
-                if let textRender = row[safe: col] {
-                    let textWidth = textRender.size().width
-                    maxColWidth = max(maxColWidth, textWidth + tableStyle.cellPadding.left + tableStyle.cellPadding.right)
-                }
-            }
-        }
-        return max(maxColWidth, tableStyle.cellWidth)
+        return markChunk?.tableRender?.columnWidths[safe: col] ?? tableStyle.cellWidth
     }
 
     func table(_ table: GMarkTableView, cellForIndexPath indexPath: TabIndexPath) -> GMarkTableViewCell? {
@@ -141,10 +124,12 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
 
         cell.contentInset = tableStyle.cellPadding
 
-        if indexPath.row % 2 == 0 {
-            cell.backgroundColor = .black.withAlphaComponent(0.06)
+        if indexPath.row == 0 {
+            cell.backgroundColor = tableStyle.headerBackgroundColor
+        } else if indexPath.row.isMultiple(of: 2) {
+            cell.backgroundColor = tableStyle.rowAlternateBackgroundColor ?? .white
         } else {
-            cell.backgroundColor = UIColor(hex: "#F2F4F7")
+            cell.backgroundColor = .white
         }
 
         return cell

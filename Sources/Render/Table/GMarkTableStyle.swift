@@ -37,3 +37,17 @@ public class GMarkTableStyle {
         }
     }
 }
+
+extension GMarkTableStyle {
+    static func markdownStyle(from tableStyle: TableStyle) -> GMarkTableStyle {
+        let style = GMarkTableStyle()
+        let lineWidth = max(0, tableStyle.borderWidth)
+        style.rowGap = lineWidth
+        style.colGap = lineWidth
+        style.gapColor = tableStyle.borderColor
+        style.borderWidth = lineWidth
+        style.borderColor = tableStyle.borderColor
+        style.cornerRadius = 6
+        return style
+    }
+}

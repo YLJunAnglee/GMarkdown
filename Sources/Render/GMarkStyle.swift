@@ -239,7 +239,8 @@ public struct DefaultTableStyle: TableStyle {
     public var rowAlternateBackgroundColor: UIColor? = .systemGray6
     public var cellPadding: UIEdgeInsets = .init(top: 6, left: 16, bottom: 6, right: 16)
     public var cellMaximumWidth: CGFloat = UIScreen.main.bounds.width - 12 - 32
-    public var maximumNumberOfLines: Int = 2
+    /// Zero means unlimited. Tables default to complete content instead of silently clipping rows.
+    public var maximumNumberOfLines: Int = 0
 
     public init() {}
 }

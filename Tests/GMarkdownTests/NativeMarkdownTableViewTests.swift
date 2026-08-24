@@ -33,6 +33,28 @@ final class NativeMarkdownTableViewTests: XCTestCase {
         XCTAssertEqual(firstResult.metrics?.bodyRowCount, secondResult.metrics?.bodyRowCount)
     }
 
+    func testRerenderReflowsCompleteContentForTheNewWidth() throws {
+        var tableStyle = DefaultTableStyle()
+        tableStyle.cellMaximumWidth = 120
+        tableStyle.maximumNumberOfLines = 0
+        var style = MarkdownStyle.defaultStyle()
+        style.tableStyle = tableStyle
+        let markdown = """
+        | 类型 | 内容 |
+        | --- | --- |
+        | 长文本 | 这是一段用于验证容器宽度变化后重新换行并计算完整行高的中文内容 |
+        """
+        let view = NativeMarkdownTableView()
+
+        let wideResult = view.render(markdown: markdown, style: style, containerWidth: 370)
+        let narrowResult = view.render(markdown: markdown, style: style, containerWidth: 280)
+
+        let wideHeight = try XCTUnwrap(wideResult.metrics?.requiredSize.height)
+        let narrowHeight = try XCTUnwrap(narrowResult.metrics?.requiredSize.height)
+        XCTAssertGreaterThan(narrowHeight, wideHeight)
+        XCTAssertEqual(view.intrinsicContentSize.height, narrowHeight)
+    }
+
     func testRendersLongLatexTableThroughPublicAPI() throws {
         let markdown = try fixture(named: "table_edge_cases")
         let longLatexTable = try section(named: "Known long LaTeX issue", in: markdown)

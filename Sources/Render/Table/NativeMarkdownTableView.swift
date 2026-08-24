@@ -135,6 +135,7 @@ public final class NativeMarkdownTableView: UIView {
 
         renderedStyle = resolvedStyle
         tableDataSource.update(tableLayout: layout, style: resolvedStyle)
+        tableView.style = GMarkTableStyle.markdownStyle(from: resolvedStyle.tableStyle)
         tableView.isHidden = false
         tableView.reloadData()
         setNeedsLayout()
@@ -151,25 +152,17 @@ public final class NativeMarkdownTableView: UIView {
 
     private func setupTableView() {
         clipsToBounds = true
-        tableView.backgroundColor = .white
+        tableView.backgroundColor = .clear
         tableView.register(
             GMarkTableRichLabelCell.self,
             forCellReuseIdentifier: GMarkTableRichLabelCell.reuseIdentifier
         )
         tableView.dataSource = tableDataSource
-        tableView.style = makeGridStyle()
+        tableView.style = GMarkTableStyle.markdownStyle(from: renderedStyle.tableStyle)
         tableView.layer.cornerRadius = 6
         tableView.layer.masksToBounds = true
         tableView.isHidden = true
         addSubview(tableView)
-    }
-
-    private func makeGridStyle() -> GMarkTableStyle {
-        let style = GMarkTableStyle()
-        style.cornerRadius = 6
-        style.colGap = 1
-        style.gapColor = UIColor(red: 242 / 255, green: 242 / 255, blue: 1, alpha: 1)
-        return style
     }
 
     @discardableResult
@@ -201,7 +194,7 @@ private final class NativeMarkdownTableDataSource: NSObject, GMarkTableViewDataS
     }
 
     func numberOfCols(in _: GMarkTableView) -> Int {
-        tableLayout?.headerRenders.count ?? 0
+        tableLayout?.columnWidths.count ?? 0
     }
 
     func numberOfLockingRows(in _: GMarkTableView) -> Int {
@@ -213,32 +206,11 @@ private final class NativeMarkdownTableDataSource: NSObject, GMarkTableViewDataS
     }
 
     func table(_: GMarkTableView, lengthForRow row: Int) -> CGFloat {
-        let tableStyle = renderedStyle.tableStyle
-        guard let renders = tableRenders[safe: row] else {
-            return tableStyle.cellHeight
-        }
-
-        let contentHeight = renders.reduce(CGFloat.zero) { height, renderer in
-            max(height, renderer.size().height)
-        }
-        return max(
-            tableStyle.cellHeight,
-            contentHeight + tableStyle.cellPadding.top + tableStyle.cellPadding.bottom
-        )
+        tableLayout?.rowHeights[safe: row] ?? renderedStyle.tableStyle.cellHeight
     }
 
     func table(_: GMarkTableView, lengthForCol col: Int) -> CGFloat {
-        let tableStyle = renderedStyle.tableStyle
-        let contentWidth = tableRenders.reduce(CGFloat.zero) { width, row in
-            guard let renderer = row[safe: col] else {
-                return width
-            }
-            return max(width, renderer.size().width)
-        }
-        return max(
-            tableStyle.cellWidth,
-            contentWidth + tableStyle.cellPadding.left + tableStyle.cellPadding.right
-        )
+        tableLayout?.columnWidths[safe: col] ?? renderedStyle.tableStyle.cellWidth
     }
 
     func table(
@@ -260,9 +232,9 @@ private final class NativeMarkdownTableDataSource: NSObject, GMarkTableViewDataS
         if indexPath.row == 0 {
             cell.backgroundColor = renderedStyle.tableStyle.headerBackgroundColor
         } else if indexPath.row.isMultiple(of: 2) {
-            cell.backgroundColor = renderedStyle.tableStyle.rowAlternateBackgroundColor ?? .clear
+            cell.backgroundColor = renderedStyle.tableStyle.rowAlternateBackgroundColor ?? .white
         } else {
-            cell.backgroundColor = .clear
+            cell.backgroundColor = .white
         }
         return cell
     }

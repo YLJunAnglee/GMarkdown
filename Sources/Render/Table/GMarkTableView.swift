@@ -179,12 +179,12 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
         tlScrollView.frame = rect
 
         rect.origin.x = numberOfLockingCols > 0 ? rect.maxX + style.colGap : rect.maxX
-        rect.size.width = bounds.width - rect.minX - style.borderWidth
+        rect.size.width = max(0, bounds.width - rect.minX - style.borderWidth)
         trScrollView.frame = rect
 
         rect = tlScrollView.frame
         rect.origin.y = numberOfLockingRows > 0 ? rect.maxY + style.rowGap : rect.maxY
-        rect.size.height = bounds.height - rect.minY - style.borderWidth
+        rect.size.height = max(0, bounds.height - rect.minY - style.borderWidth)
         blScrollView.frame = rect
 
         rect.origin.x = trScrollView.frame.minX
@@ -195,10 +195,21 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
 
         updateSections()
 
-        var size = intrinsicContentSize
-        size.width -= (style.borderWidth * 2 + style.colGap + blScrollView.frame.width)
-        size.height -= (style.borderWidth * 2 + style.rowGap + trScrollView.frame.height)
+        let nonLockingOriginX = numberOfLockingCols > 0
+            ? lengthOfLockingCols + style.colGap
+            : 0
+        let nonLockingOriginY = numberOfLockingRows > 0
+            ? lengthOfLockingRows + style.rowGap
+            : 0
+        let size = CGSize(
+            width: max(0, (colSections.last?.rect.maxX ?? 0) - nonLockingOriginX),
+            height: max(0, (rowSections.last?.rect.maxY ?? 0) - nonLockingOriginY)
+        )
         brScrollView.contentSize = size
+        let needsHorizontalScroll = size.width > brScrollView.bounds.width + 0.5
+        let needsVerticalScroll = size.height > brScrollView.bounds.height + 0.5
+        brScrollView.isScrollEnabled = needsHorizontalScroll || needsVerticalScroll
+        brScrollView.showsHorizontalScrollIndicator = needsHorizontalScroll
 
         trScrollView.contentSize = CGSize(width: size.width, height: 0)
         blScrollView.contentSize = CGSize(width: 0, height: size.height)
@@ -249,13 +260,13 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
             tmpRowLengths.append(rowHeight)
             height += rowHeight
         }
-        height += CGFloat(numberOfRows - 1) * style.rowGap
+        height += CGFloat(max(numberOfRows - 1, 0)) * style.rowGap
         for col in 0 ..< numberOfCols {
             let colWidth = colLengths[col] ?? dataSource.table(self, lengthForCol: col)
             tmpColLengths.append(colWidth)
             width += colWidth
         }
-        width += CGFloat(numberOfCols - 1) * style.colGap
+        width += CGFloat(max(numberOfCols - 1, 0)) * style.colGap
 
         for row in 0 ..< numberOfRows {
             var y = rowSections.last?.rect.maxY ?? 0
@@ -292,8 +303,10 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
             return
         }
         visibleRect.origin = CGPoint()
-        visibleRect.origin.x = brScrollView.contentOffset.x + lengthOfLockingCols + style.colGap
-        visibleRect.origin.y = brScrollView.contentOffset.y + lengthOfLockingRows + style.rowGap
+        visibleRect.origin.x = brScrollView.contentOffset.x
+            + (numberOfLockingCols > 0 ? lengthOfLockingCols + style.colGap : 0)
+        visibleRect.origin.y = brScrollView.contentOffset.y
+            + (numberOfLockingRows > 0 ? lengthOfLockingRows + style.rowGap : 0)
 
         var availableCells = visibleCells
         visibleCells.removeAll()
@@ -458,13 +471,19 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
         if let gapColor = style.gapColor {
             let background = self.background ?? UIView()
             background.backgroundColor = gapColor
+            tlScrollView.backgroundColor = gapColor
+            trScrollView.backgroundColor = gapColor
+            blScrollView.backgroundColor = gapColor
+            brScrollView.backgroundColor = gapColor
             addSubview(background)
             sendSubviewToBack(background)
-            var frame = CGRect()
-            frame.size = brScrollView.contentSize
-            background.frame = frame
+            background.frame = bounds
             self.background = background
         } else {
+            tlScrollView.backgroundColor = .clear
+            trScrollView.backgroundColor = .clear
+            blScrollView.backgroundColor = .clear
+            brScrollView.backgroundColor = .clear
             background?.removeFromSuperview()
             background = nil
         }

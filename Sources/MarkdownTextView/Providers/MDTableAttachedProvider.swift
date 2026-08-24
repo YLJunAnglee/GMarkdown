@@ -18,10 +18,10 @@ class MDTableAttachedProvider: MarkdownAttachedViewProvider {
         
     lazy var tableView: GMarkTableView = {
         let table = GMarkTableView()
-        table.backgroundColor = .white
+        table.backgroundColor = .clear
         table.register(GMarkTableRichLabelCell.self, forCellReuseIdentifier: "GMarkTableRichLabelCell")
         table.dataSource = self
-        table.style = tableStyle
+        table.style = GMarkTableStyle.markdownStyle(from: defaultStyle)
         table.layer.cornerRadius = 6
         table.layer.masksToBounds = true
         return table
@@ -91,7 +91,7 @@ extension MDTableAttachedProvider: GMarkTableViewDataSource {
     }
 
     func numberOfCols(in _: GMarkTableView) -> Int {
-        return headerRenders().count
+        return tableLayout?.columnWidths.count ?? 0
     }
 
     func numberOfLockingRows(in _: GMarkTableView) -> Int {
@@ -103,29 +103,11 @@ extension MDTableAttachedProvider: GMarkTableViewDataSource {
     }
 
     func table(_: GMarkTableView, lengthForRow row: Int) -> CGFloat {
-        var height: CGFloat = defaultStyle.cellHeight
-        let renderArray = tableRenders()
-        if let renders = renderArray[safe: row] {
-            for textRender in renders {
-                let textheight = textRender.size().height
-                height = max(height, textheight + defaultStyle.cellPadding.top + defaultStyle.cellPadding.bottom)
-            }
-        }
-        return max(height, defaultStyle.cellHeight)
+        return tableLayout?.rowHeights[safe: row] ?? defaultStyle.cellHeight
     }
 
     func table(_: GMarkTableView, lengthForCol col: Int) -> CGFloat {
-        let renderArray = tableRenders()
-        var maxColWidth: CGFloat = 0
-        for row in renderArray {
-            if col < row.count {
-                if let textRender = row[safe: col] {
-                    let textWidth = textRender.size().width
-                    maxColWidth = max(maxColWidth, textWidth + defaultStyle.cellPadding.left + defaultStyle.cellPadding.right)
-                }
-            }
-        }
-        return max(maxColWidth, defaultStyle.cellWidth)
+        return tableLayout?.columnWidths[safe: col] ?? defaultStyle.cellWidth
     }
 
     func table(_ table: GMarkTableView, cellForIndexPath indexPath: TabIndexPath) -> GMarkTableViewCell? {
@@ -142,15 +124,15 @@ extension MDTableAttachedProvider: GMarkTableViewDataSource {
 
         cell.contentInset = defaultStyle.cellPadding
 
-        if indexPath.row % 2 == 0 {
-            cell.backgroundColor = .black.withAlphaComponent(0.06)
+        if indexPath.row == 0 {
+            cell.backgroundColor = defaultStyle.headerBackgroundColor
+        } else if indexPath.row.isMultiple(of: 2) {
+            cell.backgroundColor = defaultStyle.rowAlternateBackgroundColor ?? .white
         } else {
-            cell.backgroundColor = UIColor(hex: "#F2F4F7")
+            cell.backgroundColor = .white
         }
 
         return cell
     }
 }
-
-
 

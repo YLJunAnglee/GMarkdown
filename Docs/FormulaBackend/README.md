@@ -5,7 +5,8 @@
 - 开发基线：`3ad09372d46c40e864bc47c2560ca78cb962205f`，包含原生 TABLE 候选
   `c7880ee7550bba24959b25004982ad67a5a7f3d5` 和第 9 步包体评估文档。
 - 开发分支：`feature/formula-backend-injection`。
-- 本改动已形成独立本地 revision；尚未推送，也尚未授权 AIEndorser 更新依赖锁定或接入生产 Renderer。
+- 本改动已形成独立 revision 并发布到 `feature/formula-backend-injection`；AIEndorser 已获准锁定该分支的
+  最终 revision，但 BookNext adapter 与生产 Renderer 接入仍属于后续独立步骤。
 - 2026-09-01，用户在 iPhone 17 / iOS 26.3.1 模拟器完成发布前 review 后的完整 Package Tests：
   33 passed、0 failed；其中原有 25 项继续通过，当前公式注入契约 8 项全部通过。
 - 最终契约包含 diagnostic payload 排除、无效图片尺寸 fallback、cache-hit diagnostic duration 归零，

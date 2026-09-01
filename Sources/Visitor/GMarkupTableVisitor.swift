@@ -7,6 +7,7 @@
 
 import Foundation
 import Markdown
+import UIKit
 #if canImport(MPITextKit)
     import MPITextKit
 #endif
@@ -19,14 +20,35 @@ public struct GMarkTable {
     var contents: String = ""
     var latexFailureCount: Int = 0
     var latexRenderDuration: TimeInterval = 0
+    var formulaDiagnostics: [GMarkFormulaDiagnostic] = []
 }
 
 public struct GMarkupTableVisitor: MarkupVisitor {
     private let style: Style
+    private let formulaConfiguration: NativeMarkdownTableFormulaConfiguration?
+    private let traitCollection: UITraitCollection
+    private let displayScale: CGFloat
     private var markTable: GMarkTable
+    private var nextFormulaOrdinal: Int = 0
     public var imageLoader: ImageLoader?
     init(style: Style) {
         self.style = style
+        formulaConfiguration = nil
+        traitCollection = .current
+        displayScale = UIScreen.main.scale
+        markTable = GMarkTable()
+    }
+
+    init(
+        style: Style,
+        formulaConfiguration: NativeMarkdownTableFormulaConfiguration,
+        traitCollection: UITraitCollection,
+        displayScale: CGFloat
+    ) {
+        self.style = style
+        self.formulaConfiguration = formulaConfiguration
+        self.traitCollection = traitCollection
+        self.displayScale = displayScale
         markTable = GMarkTable()
     }
 
@@ -61,12 +83,11 @@ public struct GMarkupTableVisitor: MarkupVisitor {
      */
     public mutating func visitTableHead(_ tableHead: Table.Head) -> GMarkTable {
         var headers: [NSAttributedString] = []
-        for child in tableHead.cells {
-            var visitor = GMarkupVisitor(style: style)
+        for (column, child) in tableHead.cells.enumerated() {
+            var visitor = makeCellVisitor(row: 0, column: column, isHeader: true)
             visitor.imageLoader = imageLoader
             let attribute = visitor.visit(child)
-            markTable.latexFailureCount += visitor.latexFailureCount
-            markTable.latexRenderDuration += visitor.latexRenderDuration
+            collectFormulaResults(from: visitor)
             markTable.contents += attribute.string
             headers.append(attribute)
         }
@@ -81,8 +102,8 @@ public struct GMarkupTableVisitor: MarkupVisitor {
      - returns: The result of the visit.
      */
     public mutating func visitTableBody(_ tableBody: Table.Body) -> GMarkTable {
-        for child in tableBody.rows {
-            _ = visitTableRow(child)
+        for (index, child) in tableBody.rows.enumerated() {
+            _ = visitTableRow(child, bodyRowIndex: index)
         }
         return markTable
     }
@@ -94,13 +115,23 @@ public struct GMarkupTableVisitor: MarkupVisitor {
      - returns: The result of the visit.
      */
     public mutating func visitTableRow(_ tableRow: Table.Row) -> GMarkTable {
+        visitTableRow(tableRow, bodyRowIndex: max(0, markTable.bodys?.count ?? 0))
+    }
+
+    private mutating func visitTableRow(
+        _ tableRow: Table.Row,
+        bodyRowIndex: Int
+    ) -> GMarkTable {
         var rows: [NSAttributedString] = []
-        for child in tableRow.cells {
-            var visitor = GMarkupVisitor(style: style)
+        for (column, child) in tableRow.cells.enumerated() {
+            var visitor = makeCellVisitor(
+                row: bodyRowIndex + 1,
+                column: column,
+                isHeader: false
+            )
             visitor.imageLoader = imageLoader
             let attribute = visitor.visit(child)
-            markTable.latexFailureCount += visitor.latexFailureCount
-            markTable.latexRenderDuration += visitor.latexRenderDuration
+            collectFormulaResults(from: visitor)
             markTable.contents += attribute.string
             rows.append(attribute)
         }
@@ -108,5 +139,32 @@ public struct GMarkupTableVisitor: MarkupVisitor {
             markTable.bodys?.append(rows)
         }
         return markTable
+    }
+
+    private func makeCellVisitor(
+        row: Int,
+        column: Int,
+        isHeader: Bool
+    ) -> GMarkupVisitor {
+        guard let formulaConfiguration else { return GMarkupVisitor(style: style) }
+        return GMarkupVisitor(
+            style: style,
+            formulaRenderer: formulaConfiguration.renderer,
+            formulaCellLocation: GMarkFormulaCellLocation(
+                row: row,
+                column: column,
+                isHeader: isHeader
+            ),
+            startingFormulaOrdinal: nextFormulaOrdinal,
+            traitCollection: traitCollection,
+            displayScale: displayScale
+        )
+    }
+
+    private mutating func collectFormulaResults(from visitor: GMarkupVisitor) {
+        markTable.latexFailureCount += visitor.latexFailureCount
+        markTable.latexRenderDuration += visitor.latexRenderDuration
+        markTable.formulaDiagnostics += visitor.formulaDiagnostics
+        nextFormulaOrdinal += visitor.formulaDiagnostics.count
     }
 }

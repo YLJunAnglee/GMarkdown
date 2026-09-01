@@ -23,13 +23,41 @@ public struct GMarkupVisitor: MarkupVisitor {
     public private(set) var latexFailureCount: Int = 0
     /// Time spent in the LaTeX renderer during this visit.
     public private(set) var latexRenderDuration: TimeInterval = 0
+    /// Sanitized per-formula outcomes produced by an injected renderer.
+    public private(set) var formulaDiagnostics: [GMarkFormulaDiagnostic] = []
     
     private let style: Style
+    private let formulaRenderer: (any GMarkFormulaRendering)?
+    private let formulaCellLocation: GMarkFormulaCellLocation?
+    private let formulaTraitCollection: UITraitCollection
+    private let formulaDisplayScale: CGFloat
+    private var nextFormulaOrdinal: Int
     public var referLoader: ReferLoader?
     public var imageLoader: ImageLoader?
      
     public init(style: Style) {
         self.style = style
+        formulaRenderer = nil
+        formulaCellLocation = nil
+        formulaTraitCollection = .current
+        formulaDisplayScale = UIScreen.main.scale
+        nextFormulaOrdinal = 0
+    }
+
+    init(
+        style: Style,
+        formulaRenderer: any GMarkFormulaRendering,
+        formulaCellLocation: GMarkFormulaCellLocation,
+        startingFormulaOrdinal: Int,
+        traitCollection: UITraitCollection,
+        displayScale: CGFloat
+    ) {
+        self.style = style
+        self.formulaRenderer = formulaRenderer
+        self.formulaCellLocation = formulaCellLocation
+        formulaTraitCollection = traitCollection
+        formulaDisplayScale = displayScale
+        nextFormulaOrdinal = startingFormulaOrdinal
     }
     
     public typealias Result = NSAttributedString
@@ -180,16 +208,108 @@ extension GMarkupVisitor {
 extension GMarkupVisitor {
     
     private mutating func processLatexText(_ text: Text) -> NSAttributedString {
+        guard let formulaRenderer, let formulaCellLocation else {
+            return processLatexTextWithLegacyRenderer(text)
+        }
+
+        let ordinal = nextFormulaOrdinal
+        nextFormulaOrdinal += 1
+        let request = GMarkFormulaRenderRequest(
+            latex: GMarkLaTexRender.trimBrackets(from: text.plainText),
+            container: .tableCell,
+            font: style.fonts.current,
+            textColor: style.colors.current,
+            maximumWidth: max(0, style.maxContainerWidth - 40),
+            displayScale: formulaDisplayScale,
+            traitCollection: formulaTraitCollection
+        )
+        let start = ProcessInfo.processInfo.systemUptime
+        let renderResult = formulaRenderer.renderFormula(request)
+        let duration = ProcessInfo.processInfo.systemUptime - start
+        latexRenderDuration += duration
+
+        switch renderResult {
+        case let .success(image, intrinsicSize, backendRevision):
+            guard image.size.width.isFinite,
+                  image.size.height.isFinite,
+                  image.size.width > 0,
+                  image.size.height > 0 else {
+                recordFormulaFallback(
+                    reasonCode: .invalidImageSize,
+                    backendRevision: backendRevision,
+                    ordinal: ordinal,
+                    location: formulaCellLocation,
+                    duration: duration
+                )
+                return createDefaultAttributedString(from: text.plainText)
+            }
+            guard intrinsicSize.width.isFinite,
+                  intrinsicSize.height.isFinite,
+                  intrinsicSize.width > 0,
+                  intrinsicSize.height > 0 else {
+                recordFormulaFallback(
+                    reasonCode: .invalidIntrinsicSize,
+                    backendRevision: backendRevision,
+                    ordinal: ordinal,
+                    location: formulaCellLocation,
+                    duration: duration
+                )
+                return createDefaultAttributedString(from: text.plainText)
+            }
+            formulaDiagnostics.append(GMarkFormulaDiagnostic(
+                ordinal: ordinal,
+                row: formulaCellLocation.row,
+                column: formulaCellLocation.column,
+                isHeader: formulaCellLocation.isHeader,
+                container: .tableCell,
+                reasonCode: nil,
+                backendRevision: backendRevision,
+                duration: duration
+            ))
+            return createLatexImageAttributedString(image: image, intrinsicSize: intrinsicSize)
+        case let .fallback(reasonCode, backendRevision):
+            recordFormulaFallback(
+                reasonCode: reasonCode,
+                backendRevision: backendRevision,
+                ordinal: ordinal,
+                location: formulaCellLocation,
+                duration: duration
+            )
+            return createDefaultAttributedString(from: text.plainText)
+        }
+    }
+
+    private mutating func processLatexTextWithLegacyRenderer(_ text: Text) -> NSAttributedString {
         let start = ProcessInfo.processInfo.systemUptime
         let renderResult = GMarkLaTexRender.renderLatexSmart(from: text.plainText, style: style)
         latexRenderDuration += ProcessInfo.processInfo.systemUptime - start
-        
+
         if renderResult.success, let image = renderResult.image {
-            return createLatexImageAttributedString(image: image)
+            return createLatexImageAttributedString(image: image, intrinsicSize: nil)
         } else {
             latexFailureCount += 1
             return createDefaultAttributedString(from: text.plainText)
         }
+    }
+
+    private mutating func recordFormulaFallback(
+        reasonCode: GMarkFormulaFallbackReasonCode,
+        backendRevision: GMarkFormulaBackendRevision,
+        ordinal: Int,
+        location: GMarkFormulaCellLocation,
+        duration: TimeInterval
+    ) {
+        latexFailureCount += 1
+        formulaDiagnostics.append(GMarkFormulaDiagnostic(
+            ordinal: ordinal,
+            row: location.row,
+            column: location.column,
+            isHeader: location.isHeader,
+            container: .tableCell,
+            reasonCode: reasonCode,
+            backendRevision: backendRevision,
+            duration: duration
+        ))
     }
     
     private mutating func processSupTagText(_ text: Text) -> NSAttributedString {
@@ -203,14 +323,25 @@ extension GMarkupVisitor {
         return createSupTagAttributedString(webSite: webSite, link: link)
     }
     
-    private mutating func createLatexImageAttributedString(image: UIImage) -> NSAttributedString {
-        let resizedImage = image.resized(toMaxWidth: style.maxContainerWidth - 40)
+    private mutating func createLatexImageAttributedString(
+        image: UIImage,
+        intrinsicSize: CGSize?
+    ) -> NSAttributedString {
+        let resizedImage: UIImage
+        let attachmentSize: CGSize
+        if let intrinsicSize {
+            resizedImage = image
+            attachmentSize = fittedLatexSize(intrinsicSize)
+        } else {
+            resizedImage = image.resized(toMaxWidth: style.maxContainerWidth - 40)
+            attachmentSize = resizedImage.size
+        }
         let result = NSMutableAttributedString(string: "")
         
         if style.useMPTextKit {
             let attachment = MPITextAttachment()
             attachment.content = resizedImage
-            attachment.contentSize = resizedImage.size
+            attachment.contentSize = attachmentSize
             attachment.contentMode = .left
             attachment.verticalAligment = .center
             let attrString = NSMutableAttributedString(attachment: attachment)
@@ -219,13 +350,20 @@ extension GMarkupVisitor {
         } else {
             let attachment = NSTextAttachment()
             attachment.image = resizedImage
-            attachment.bounds = CGRect(x: 0, y: 0, width: resizedImage.size.width, height: resizedImage.size.height)
+            attachment.bounds = CGRect(origin: .zero, size: attachmentSize)
             let attrString = NSMutableAttributedString(attachment: attachment)
             applyLatexImageStyle(to: attrString)
             result.append(attrString)
         }
         
         return result
+    }
+
+    private func fittedLatexSize(_ intrinsicSize: CGSize) -> CGSize {
+        let maximumWidth = max(0, style.maxContainerWidth - 40)
+        guard maximumWidth > 0, intrinsicSize.width > maximumWidth else { return intrinsicSize }
+        let scale = maximumWidth / intrinsicSize.width
+        return CGSize(width: maximumWidth, height: intrinsicSize.height * scale)
     }
     
     private func applyLatexImageStyle(to attrString: NSMutableAttributedString) {
@@ -475,6 +613,3 @@ private struct Renderer {
         }
     }
 }
-
-
-

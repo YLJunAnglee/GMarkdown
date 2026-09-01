@@ -47,6 +47,7 @@ public struct NativeMarkdownTableRenderMetrics: Equatable {
     public let bodyRowCount: Int
     public let requiredSize: CGSize
     public let warnings: [NativeMarkdownTableRenderWarning]
+    public let formulaDiagnostics: [GMarkFormulaDiagnostic]
     public let performance: NativeMarkdownTableRenderPerformance
     /// Difference from the previously displayed successful table height. Nil on first render.
     public let heightDelta: CGFloat?
@@ -56,6 +57,7 @@ public struct NativeMarkdownTableRenderMetrics: Equatable {
         bodyRowCount: Int,
         requiredSize: CGSize,
         warnings: [NativeMarkdownTableRenderWarning] = [],
+        formulaDiagnostics: [GMarkFormulaDiagnostic] = [],
         performance: NativeMarkdownTableRenderPerformance = .init(),
         heightDelta: CGFloat? = nil
     ) {
@@ -63,6 +65,7 @@ public struct NativeMarkdownTableRenderMetrics: Equatable {
         self.bodyRowCount = bodyRowCount
         self.requiredSize = requiredSize
         self.warnings = warnings
+        self.formulaDiagnostics = formulaDiagnostics
         self.performance = performance
         self.heightDelta = heightDelta
     }
@@ -112,7 +115,10 @@ public final class NativeMarkdownTableRenderTask {
 
 /// A standalone native renderer for one Markdown table block.
 public final class NativeMarkdownTableView: UIView {
+    /// The latest legacy-compatible projection used by the original render API.
     public private(set) var lastRenderResult: NativeMarkdownTableRenderResult = .failure(.emptyMarkdown)
+    /// The latest completed result from an API that supplied a formula configuration.
+    public private(set) var lastFormulaRenderResult: NativeMarkdownTableFormulaRenderResult?
 
     private let tableView = GMarkTableView()
     private let tableDataSource = NativeMarkdownTableDataSource()
@@ -152,12 +158,42 @@ public final class NativeMarkdownTableView: UIView {
         containerWidth: CGFloat
     ) -> NativeMarkdownTableRenderResult {
         cancelActiveRenderTask()
-        return prepareAndApply(
+        let result = prepareAndApply(
             markdown: markdown,
             style: style,
             containerWidth: containerWidth,
+            formulaConfiguration: nil,
+            formulaFailureHandler: nil,
             shouldApply: { true }
         ) ?? .failure(.emptyMarkdown)
+        lastFormulaRenderResult = nil
+        return result
+    }
+
+    /// Renders one table with a caller-supplied formula backend and explicit failure policy.
+    @discardableResult
+    public func render(
+        markdown: String,
+        style: MarkdownStyle = .defaultStyle(),
+        containerWidth: CGFloat,
+        formulaConfiguration: NativeMarkdownTableFormulaConfiguration
+    ) -> NativeMarkdownTableFormulaRenderResult {
+        cancelActiveRenderTask()
+        var formulaFailureDiagnostics: [GMarkFormulaDiagnostic]?
+        let result = prepareAndApply(
+            markdown: markdown,
+            style: style,
+            containerWidth: containerWidth,
+            formulaConfiguration: formulaConfiguration,
+            formulaFailureHandler: { formulaFailureDiagnostics = $0 },
+            shouldApply: { true }
+        ) ?? .failure(.emptyMarkdown)
+        let formulaResult = formulaResult(
+            from: result,
+            formulaFailureDiagnostics: formulaFailureDiagnostics
+        )
+        lastFormulaRenderResult = formulaResult
+        return formulaResult
     }
 
     /// Schedules a cancellable render on the main queue.
@@ -180,13 +216,53 @@ public final class NativeMarkdownTableView: UIView {
                 markdown: markdown,
                 style: style,
                 containerWidth: containerWidth,
+                formulaConfiguration: nil,
+                formulaFailureHandler: nil,
                 shouldApply: { [weak self, weak task] in
                     guard let self, let task else { return false }
                     return self.isActive(task)
                 }
             )
             guard let result, self.complete(task) else { return }
+            self.lastFormulaRenderResult = nil
             completion(result)
+        }
+        return task
+    }
+
+    /// Schedules a cancellable render using a caller-supplied formula backend.
+    @discardableResult
+    public func renderAsync(
+        markdown: String,
+        style: MarkdownStyle = .defaultStyle(),
+        containerWidth: CGFloat,
+        formulaConfiguration: NativeMarkdownTableFormulaConfiguration,
+        completion: @escaping (NativeMarkdownTableFormulaRenderResult) -> Void
+    ) -> NativeMarkdownTableRenderTask {
+        let task = NativeMarkdownTableRenderTask()
+        activate(task)
+
+        DispatchQueue.main.async { [weak self, weak task] in
+            guard let self, let task, self.isActive(task) else { return }
+            var formulaFailureDiagnostics: [GMarkFormulaDiagnostic]?
+            let result = self.prepareAndApply(
+                markdown: markdown,
+                style: style,
+                containerWidth: containerWidth,
+                formulaConfiguration: formulaConfiguration,
+                formulaFailureHandler: { formulaFailureDiagnostics = $0 },
+                shouldApply: { [weak self, weak task] in
+                    guard let self, let task else { return false }
+                    return self.isActive(task)
+                }
+            )
+            guard let result, self.complete(task) else { return }
+            let formulaResult = self.formulaResult(
+                from: result,
+                formulaFailureDiagnostics: formulaFailureDiagnostics
+            )
+            self.lastFormulaRenderResult = formulaResult
+            completion(formulaResult)
         }
         return task
     }
@@ -199,6 +275,7 @@ public final class NativeMarkdownTableView: UIView {
     /// Removes the current table, cancels pending work, and returns to the initial empty state.
     public func clear() {
         cancelActiveRenderTask()
+        lastFormulaRenderResult = nil
         _ = finish(with: .failure(.emptyMarkdown))
     }
 
@@ -206,6 +283,8 @@ public final class NativeMarkdownTableView: UIView {
         markdown: String,
         style: MarkdownStyle,
         containerWidth: CGFloat,
+        formulaConfiguration: NativeMarkdownTableFormulaConfiguration?,
+        formulaFailureHandler: (([GMarkFormulaDiagnostic]) -> Void)?,
         shouldApply: () -> Bool
     ) -> NativeMarkdownTableRenderResult? {
         let totalStart = ProcessInfo.processInfo.systemUptime
@@ -224,7 +303,11 @@ public final class NativeMarkdownTableView: UIView {
             containerWidth: containerWidth,
             style: resolvedStyle,
             traits: traitCollection,
-            displayScale: resolvedDisplayScale
+            displayScale: resolvedDisplayScale,
+            formulaRendererIdentity: formulaConfiguration?.renderer.cacheIdentity
+                ?? "legacy-formula-renderer-v1",
+            formulaFailurePolicy: formulaConfiguration?.failurePolicy.rawValue
+                ?? "legacy-raw-formula"
         )
 
         if let prepared = NativeMarkdownTableRenderCache.shared.value(for: cacheKey) {
@@ -254,9 +337,25 @@ public final class NativeMarkdownTableView: UIView {
             return shouldApply() ? finish(with: .failure(.containsUnsupportedContent)) : nil
         }
 
-        var visitor = GMarkupTableVisitor(style: resolvedStyle)
+        var visitor: GMarkupTableVisitor
+        if let formulaConfiguration {
+            visitor = GMarkupTableVisitor(
+                style: resolvedStyle,
+                formulaConfiguration: formulaConfiguration,
+                traitCollection: traitCollection,
+                displayScale: resolvedDisplayScale
+            )
+        } else {
+            visitor = GMarkupTableVisitor(style: resolvedStyle)
+        }
         let table = tables[0]
         let markTable = visitor.visit(table)
+        if formulaConfiguration?.failurePolicy == .rejectWholeTable,
+           markTable.formulaDiagnostics.contains(where: { $0.reasonCode != nil }) {
+            guard shouldApply() else { return nil }
+            formulaFailureHandler?(markTable.formulaDiagnostics)
+            return finish(with: .failure(.containsUnsupportedContent))
+        }
         let layoutStart = ProcessInfo.processInfo.systemUptime
         let layout = GMarkTableLayout(markTable: markTable, style: resolvedStyle)
         let layoutDuration = ProcessInfo.processInfo.systemUptime - layoutStart
@@ -279,10 +378,15 @@ public final class NativeMarkdownTableView: UIView {
             bodyRowCount: Array(table.body.rows).count,
             requiredSize: requiredSize,
             warnings: warnings,
+            formulaDiagnostics: markTable.formulaDiagnostics,
             formulaRenderDuration: markTable.latexRenderDuration
         )
         guard shouldApply() else { return nil }
-        NativeMarkdownTableRenderCache.shared.insert(prepared, for: cacheKey)
+        let containsConfiguredFormulaFallback = formulaConfiguration != nil
+            && markTable.latexFailureCount > 0
+        if !containsConfiguredFormulaFallback {
+            NativeMarkdownTableRenderCache.shared.insert(prepared, for: cacheKey)
+        }
         return apply(
             prepared,
             style: resolvedStyle,
@@ -321,12 +425,30 @@ public final class NativeMarkdownTableView: UIView {
             bodyRowCount: prepared.bodyRowCount,
             requiredSize: prepared.requiredSize,
             warnings: prepared.warnings,
+            formulaDiagnostics: cacheHit
+                ? prepared.formulaDiagnostics.map { $0.replacingDuration(with: 0) }
+                : prepared.formulaDiagnostics,
             performance: performance,
             heightDelta: previousHeight.map { prepared.requiredSize.height - $0 }
         )
         lastRenderResult = .success(metrics)
         invalidateIntrinsicContentSize()
         return lastRenderResult
+    }
+
+    private func formulaResult(
+        from result: NativeMarkdownTableRenderResult,
+        formulaFailureDiagnostics: [GMarkFormulaDiagnostic]?
+    ) -> NativeMarkdownTableFormulaRenderResult {
+        if let formulaFailureDiagnostics {
+            return .failure(.formulaRenderingFailed(diagnostics: formulaFailureDiagnostics))
+        }
+        switch result {
+        case let .success(metrics):
+            return .success(metrics)
+        case let .failure(failure):
+            return .failure(.table(failure))
+        }
     }
 
     private var resolvedDisplayScale: CGFloat {

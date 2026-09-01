@@ -7,6 +7,7 @@ final class PreparedNativeMarkdownTableRender {
     let bodyRowCount: Int
     let requiredSize: CGSize
     let warnings: [NativeMarkdownTableRenderWarning]
+    let formulaDiagnostics: [GMarkFormulaDiagnostic]
     let formulaRenderDuration: TimeInterval
 
     init(
@@ -15,6 +16,7 @@ final class PreparedNativeMarkdownTableRender {
         bodyRowCount: Int,
         requiredSize: CGSize,
         warnings: [NativeMarkdownTableRenderWarning],
+        formulaDiagnostics: [GMarkFormulaDiagnostic],
         formulaRenderDuration: TimeInterval
     ) {
         self.layout = layout
@@ -22,6 +24,7 @@ final class PreparedNativeMarkdownTableRender {
         self.bodyRowCount = bodyRowCount
         self.requiredSize = requiredSize
         self.warnings = warnings
+        self.formulaDiagnostics = formulaDiagnostics
         self.formulaRenderDuration = formulaRenderDuration
     }
 
@@ -29,7 +32,7 @@ final class PreparedNativeMarkdownTableRender {
 }
 
 struct NativeMarkdownTableRenderCacheKey: Hashable {
-    private static let currentRendererVersion = "native-table-v2"
+    private static let currentRendererVersion = "native-table-v3"
 
     let markdown: String
     let containerWidthBits: UInt64
@@ -38,6 +41,8 @@ struct NativeMarkdownTableRenderCacheKey: Hashable {
     let accessibilityContrast: Int
     let interfaceLevel: Int
     let displayScaleBits: UInt64
+    let formulaRendererIdentity: String
+    let formulaFailurePolicy: String
     let rendererVersion: String
 
     init(
@@ -45,7 +50,9 @@ struct NativeMarkdownTableRenderCacheKey: Hashable {
         containerWidth: CGFloat,
         style: MarkdownStyle,
         traits: UITraitCollection,
-        displayScale: CGFloat
+        displayScale: CGFloat,
+        formulaRendererIdentity: String = "legacy-formula-renderer-v1",
+        formulaFailurePolicy: String = "legacy-raw-formula"
     ) {
         self.markdown = markdown
         containerWidthBits = Double(containerWidth).bitPattern
@@ -54,6 +61,8 @@ struct NativeMarkdownTableRenderCacheKey: Hashable {
         accessibilityContrast = traits.accessibilityContrast.rawValue
         interfaceLevel = traits.userInterfaceLevel.rawValue
         displayScaleBits = Double(displayScale).bitPattern
+        self.formulaRendererIdentity = formulaRendererIdentity
+        self.formulaFailurePolicy = formulaFailurePolicy
         rendererVersion = Self.currentRendererVersion
     }
 }

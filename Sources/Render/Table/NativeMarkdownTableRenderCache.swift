@@ -28,7 +28,27 @@ final class PreparedNativeMarkdownTableRender {
         self.formulaRenderDuration = formulaRenderDuration
     }
 
-    var cacheCost: Int { max(1, columnCount * (bodyRowCount + 1)) }
+    func cacheCost(for key: NativeMarkdownTableRenderCacheKey) -> Int? {
+        guard let formulaRasterByteCost = layout.markTable.formulaRasterByteCost else {
+            return nil
+        }
+        return Self.addingCosts([
+            key.retainedUTF8Cost,
+            layout.markTable.contents.utf8.count,
+            formulaRasterByteCost
+        ])
+    }
+
+    private static func addingCosts(_ costs: [Int?]) -> Int? {
+        var total = 0
+        for cost in costs {
+            guard let cost else { return nil }
+            let (next, overflow) = total.addingReportingOverflow(cost)
+            guard overflow == false else { return nil }
+            total = next
+        }
+        return max(1, total)
+    }
 }
 
 struct NativeMarkdownTableRenderCacheKey: Hashable {
@@ -65,28 +85,54 @@ struct NativeMarkdownTableRenderCacheKey: Hashable {
         self.formulaFailurePolicy = formulaFailurePolicy
         rendererVersion = Self.currentRendererVersion
     }
+
+    var retainedUTF8Cost: Int? {
+        var total = 0
+        for value in [markdown, styleFingerprint, formulaRendererIdentity,
+                      formulaFailurePolicy, rendererVersion] {
+            let (next, overflow) = total.addingReportingOverflow(value.utf8.count)
+            guard overflow == false else { return nil }
+            total = next
+        }
+        return total
+    }
 }
 
 final class NativeMarkdownTableRenderCache {
-    static let shared = NativeMarkdownTableRenderCache()
-
-    private let storage = GMarkLRUCache<NativeMarkdownTableRenderCacheKey, PreparedNativeMarkdownTableRender>(
-        totalCostLimit: 1_000,
-        countLimit: 32
+    static let maximumTotalCost = 16 * 1_024 * 1_024
+    static let maximumEntryCount = 32
+    static let shared = NativeMarkdownTableRenderCache(
+        totalCostLimit: maximumTotalCost,
+        countLimit: maximumEntryCount
     )
 
-    private init() {}
+    private let storage: GMarkLRUCache<NativeMarkdownTableRenderCacheKey,
+        PreparedNativeMarkdownTableRender>
+
+    init(totalCostLimit: Int,
+         countLimit: Int,
+         notificationCenter: NotificationCenter = .default) {
+        storage = GMarkLRUCache(totalCostLimit: totalCostLimit,
+                                countLimit: countLimit,
+                                notificationCenter: notificationCenter)
+    }
 
     func value(for key: NativeMarkdownTableRenderCacheKey) -> PreparedNativeMarkdownTableRender? {
         storage.value(forKey: key)
     }
 
     func insert(_ value: PreparedNativeMarkdownTableRender, for key: NativeMarkdownTableRenderCacheKey) {
-        storage.setValue(value, forKey: key, cost: value.cacheCost)
+        guard let cost = value.cacheCost(for: key),
+              cost <= storage.totalCostLimit else { return }
+        storage.setValue(value, forKey: key, cost: cost)
     }
 
     func removeAll() {
         storage.removeAllValues()
+    }
+
+    var snapshot: (entryCount: Int, totalCost: Int) {
+        (storage.count, storage.totalCost)
     }
 }
 

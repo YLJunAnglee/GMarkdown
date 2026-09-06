@@ -25,6 +25,9 @@ public struct GMarkupVisitor: MarkupVisitor {
     public private(set) var latexRenderDuration: TimeInterval = 0
     /// Sanitized per-formula outcomes produced by an injected renderer.
     public private(set) var formulaDiagnostics: [GMarkFormulaDiagnostic] = []
+    /// Measured raster-byte charge for formula images, or `nil` when UIKit cannot expose a
+    /// measurable CGImage backing. An unmeasurable render remains displayable but is not cached.
+    private(set) var formulaRasterByteCost: Int? = 0
     
     private let style: Style
     private let formulaRenderer: (any GMarkFormulaRendering)?
@@ -336,6 +339,7 @@ extension GMarkupVisitor {
             resizedImage = image.resized(toMaxWidth: style.maxContainerWidth - 40)
             attachmentSize = resizedImage.size
         }
+        recordFormulaRasterCost(resizedImage)
         let result = NSMutableAttributedString(string: "")
         
         if style.useMPTextKit {
@@ -357,6 +361,22 @@ extension GMarkupVisitor {
         }
         
         return result
+    }
+
+    private mutating func recordFormulaRasterCost(_ image: UIImage) {
+        guard let currentCost = formulaRasterByteCost,
+              let cgImage = image.cgImage else {
+            formulaRasterByteCost = nil
+            return
+        }
+        let (imageCost, multiplicationOverflow) = cgImage.bytesPerRow
+            .multipliedReportingOverflow(by: cgImage.height)
+        guard multiplicationOverflow == false else {
+            formulaRasterByteCost = nil
+            return
+        }
+        let (total, additionOverflow) = currentCost.addingReportingOverflow(imageCost)
+        formulaRasterByteCost = additionOverflow ? nil : total
     }
 
     private func fittedLatexSize(_ intrinsicSize: CGSize) -> CGSize {

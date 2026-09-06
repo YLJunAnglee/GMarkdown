@@ -6,6 +6,7 @@
 //
 
 import Markdown
+import CoreImage
 import UIKit
 import XCTest
 
@@ -120,6 +121,71 @@ final class GMarkFormulaInjectionTests: XCTestCase {
         XCTAssertFalse(recoveredMetrics.performance.cacheHit)
         XCTAssertTrue(recoveredMetrics.warnings.isEmpty)
         XCTAssertEqual(recoveredRenderer.requests.count, 4)
+    }
+
+    func testPreparedTableCacheEvictsByMeasuredRasterAndSourceBytes() throws {
+        let center = NotificationCenter()
+        let firstKey = renderCacheKey(markdown: "| first |")
+        let secondKey = renderCacheKey(markdown: "| second |")
+        let first = preparedRender(contents: "first", formulaRasterByteCost: 600)
+        let second = preparedRender(contents: "second", formulaRasterByteCost: 600)
+        let firstCost = try XCTUnwrap(first.cacheCost(for: firstKey))
+        let secondCost = try XCTUnwrap(second.cacheCost(for: secondKey))
+        let cache = NativeMarkdownTableRenderCache(totalCostLimit: max(firstCost, secondCost),
+                                                   countLimit: 8,
+                                                   notificationCenter: center)
+
+        cache.insert(first, for: firstKey)
+        XCTAssertNotNil(cache.value(for: firstKey))
+        cache.insert(second, for: secondKey)
+
+        XCTAssertNil(cache.value(for: firstKey))
+        XCTAssertNotNil(cache.value(for: secondKey))
+        XCTAssertEqual(cache.snapshot.entryCount, 1)
+        XCTAssertLessThanOrEqual(cache.snapshot.totalCost, max(firstCost, secondCost))
+    }
+
+    func testPreparedTableCachePurgesOnInjectedMemoryWarning() {
+        let center = NotificationCenter()
+        let warning = Notification.Name("GMarkFormulaInjectionTests.memoryWarning")
+        let cache = NativeMarkdownTableRenderCache(totalCostLimit: 1_000_000,
+                                                   countLimit: 8,
+                                                   notificationCenter: center)
+        let key = renderCacheKey(markdown: "| warning |")
+        cache.insert(preparedRender(contents: "warning", formulaRasterByteCost: 128),
+                     for: key)
+        XCTAssertEqual(cache.snapshot.entryCount, 1)
+
+        center.post(name: warning, object: nil)
+        XCTAssertEqual(cache.snapshot.entryCount, 1)
+        center.post(name: LRUCacheMemoryWarningNotification, object: nil)
+
+        XCTAssertEqual(cache.snapshot.entryCount, 0)
+        XCTAssertEqual(cache.snapshot.totalCost, 0)
+    }
+
+    func testUnmeasurableFormulaRasterRendersButIsNeverCached() throws {
+        let ciImage = CIImage(color: CIColor(red: 1, green: 0, blue: 0))
+            .cropped(to: CGRect(x: 0, y: 0, width: 8, height: 8))
+        let image = UIImage(ciImage: ciImage, scale: 1, orientation: .up)
+        XCTAssertNil(image.cgImage)
+        let renderer = FormulaRendererSpy(cacheIdentity: "ci-image-v1", image: image)
+        let view = NativeMarkdownTableView()
+
+        let first = try XCTUnwrap(view.render(
+            markdown: formulaTable,
+            containerWidth: 370,
+            formulaConfiguration: .init(renderer: renderer, failurePolicy: .rawFormula)
+        ).metrics)
+        let second = try XCTUnwrap(view.render(
+            markdown: formulaTable,
+            containerWidth: 370,
+            formulaConfiguration: .init(renderer: renderer, failurePolicy: .rawFormula)
+        ).metrics)
+
+        XCTAssertFalse(first.performance.cacheHit)
+        XCTAssertFalse(second.performance.cacheHit)
+        XCTAssertEqual(renderer.requests.count, 8)
     }
 
     func testCacheSeparatesRendererIdentityAndFailurePolicy() throws {
@@ -250,6 +316,31 @@ final class GMarkFormulaInjectionTests: XCTestCase {
     private func parseSingleTable(_ markdown: String) throws -> Table {
         try XCTUnwrap(GMarkParser().parseMarkdownToMarkups(markdown: markdown).first as? Table)
     }
+
+    private func renderCacheKey(markdown: String) -> NativeMarkdownTableRenderCacheKey {
+        NativeMarkdownTableRenderCacheKey(markdown: markdown,
+                                          containerWidth: 320,
+                                          style: MarkdownStyle.defaultStyle(),
+                                          traits: .init(userInterfaceStyle: .light),
+                                          displayScale: 2)
+    }
+
+    private func preparedRender(contents: String,
+                                formulaRasterByteCost: Int?)
+        -> PreparedNativeMarkdownTableRender {
+        var table = GMarkTable()
+        table.contents = contents
+        table.formulaRasterByteCost = formulaRasterByteCost
+        let layout = GMarkTableLayout(markTable: table,
+                                      style: MarkdownStyle.defaultStyle())
+        return .init(layout: layout,
+                     columnCount: 1,
+                     bodyRowCount: 1,
+                     requiredSize: CGSize(width: 1, height: 1),
+                     warnings: [],
+                     formulaDiagnostics: [],
+                     formulaRenderDuration: 0)
+    }
 }
 
 private final class FormulaRendererSpy: GMarkFormulaRendering {
@@ -257,18 +348,21 @@ private final class FormulaRendererSpy: GMarkFormulaRendering {
     private let fallbackLatex: String?
     private let fallbackReasonCode: GMarkFormulaFallbackReasonCode
     private let backendRevision: GMarkFormulaBackendRevision
+    private let image: UIImage?
     private(set) var requests: [GMarkFormulaRenderRequest] = []
 
     init(
         cacheIdentity: String,
         fallbackLatex: String? = nil,
         fallbackReasonCode: GMarkFormulaFallbackReasonCode = .unknown,
-        backendRevision: GMarkFormulaBackendRevision = .init(rawValue: 1)
+        backendRevision: GMarkFormulaBackendRevision = .init(rawValue: 1),
+        image: UIImage? = nil
     ) {
         self.cacheIdentity = cacheIdentity
         self.fallbackLatex = fallbackLatex
         self.fallbackReasonCode = fallbackReasonCode
         self.backendRevision = backendRevision
+        self.image = image
     }
 
     func renderFormula(_ request: GMarkFormulaRenderRequest) -> GMarkFormulaRenderResult {
@@ -280,7 +374,8 @@ private final class FormulaRendererSpy: GMarkFormulaRendering {
             )
         }
         return .success(
-            image: UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { _ in },
+            image: image
+                ?? UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { _ in },
             intrinsicSize: CGSize(width: 8, height: 8),
             backendRevision: backendRevision
         )

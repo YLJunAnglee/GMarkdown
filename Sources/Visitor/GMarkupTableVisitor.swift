@@ -21,6 +21,7 @@ public struct GMarkTable {
     var latexFailureCount: Int = 0
     var latexRenderDuration: TimeInterval = 0
     var formulaDiagnostics: [GMarkFormulaDiagnostic] = []
+    var formulaRasterByteCost: Int? = 0
 }
 
 public struct GMarkupTableVisitor: MarkupVisitor {
@@ -165,6 +166,13 @@ public struct GMarkupTableVisitor: MarkupVisitor {
         markTable.latexFailureCount += visitor.latexFailureCount
         markTable.latexRenderDuration += visitor.latexRenderDuration
         markTable.formulaDiagnostics += visitor.formulaDiagnostics
+        if let currentCost = markTable.formulaRasterByteCost,
+           let visitorCost = visitor.formulaRasterByteCost {
+            let (total, overflow) = currentCost.addingReportingOverflow(visitorCost)
+            markTable.formulaRasterByteCost = overflow ? nil : total
+        } else {
+            markTable.formulaRasterByteCost = nil
+        }
         nextFormulaOrdinal += visitor.formulaDiagnostics.count
     }
 }

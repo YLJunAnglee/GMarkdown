@@ -68,9 +68,11 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
         
         let nsString = result as NSString
         let range = NSRange(location: 0, length: nsString.length)
-        let matches = regex.matches(in: result, options: [], range: range).reversed()
+        let matches = regex.matches(in: result, options: [], range: range)
+        guard !matches.isEmpty else { return result }
+        let literalRanges = literalCodeRanges(in: markdown, formulas: matches.map(\.range))
         
-        for match in matches {
+        for match in matches.reversed() {
             let matchRange = match.range
             let matchedString = nsString.substring(with: matchRange)
             
@@ -79,7 +81,8 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
             
             let wrappedString = wrapLaTeX(
                 matchedString,
-                preserveLineStructure: isInsideMarkdownTable(matchRange, in: nsString)
+                preserveLineStructure: isInsideMarkdownTable(matchRange, in: nsString),
+                protectContent: !literalRanges.contains { NSIntersectionRange($0, matchRange).length > 0 }
             )
             result = (result as NSString).replacingCharacters(in: matchRange, with: wrappedString)
         }
@@ -87,11 +90,12 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
         return result
     }
     
-    private func wrapLaTeX(_ content: String, preserveLineStructure: Bool) -> String {
+    private func wrapLaTeX(_ content: String, preserveLineStructure: Bool, protectContent: Bool) -> String {
         // A newline inside a GFM table cell ends the current row. Keep even long
         // expressions inline here so preprocessing cannot change the table shape.
         if preserveLineStructure {
-            return "<LaTex>\(content)</LaTex>"
+            let literal = protectContent ? protectTableFormula(content) : content
+            return "<LaTex>\(literal)</LaTex>"
         }
 
         let lines = content.components(separatedBy: .newlines)
@@ -103,6 +107,99 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
             // Inline expressions
             return "<LaTex>\(content)</LaTex>"
         }
+    }
+
+    /// Character references become literal Text during CommonMark inline parsing, not syntax.
+    /// Protect all ASCII punctuation (including backslashes, entities and table pipes), rather
+    /// than patching individual TeX commands or attempting to reassemble an already damaged AST.
+    /// The visitor receives the original envelope and needs no second decode or shared registry.
+    private func protectTableFormula(_ content: String) -> String {
+        var result = ""
+        result.reserveCapacity(content.utf8.count)
+        for scalar in content.unicodeScalars {
+            switch scalar.value {
+            case 0x21...0x2F, 0x3A...0x40, 0x5B...0x60, 0x7B...0x7E:
+                result += "&#\(scalar.value);"
+            default:
+                result.unicodeScalars.append(scalar)
+            }
+        }
+        return result
+    }
+
+    /// Do not introduce character references into code, where CommonMark would display them
+    /// literally. Keep the pre-existing code-context wrapping behavior; this is not a new
+    /// dollar recognizer. A formula opened before a backtick owns its contents, while a code
+    /// span opened first owns embedded dollar text. Tables have line-local inline parsing.
+    private func literalCodeRanges(in markdown: String, formulas: [NSRange]) -> [NSRange] {
+        guard let fences = try? NSRegularExpression(pattern: #"^ {0,3}(`{3,}|~{3,})(.*)$"#),
+              let ticks = try? NSRegularExpression(pattern: "`+") else { return [] }
+        var result: [NSRange] = []
+        var fence: (marker: Character, count: Int)?
+        var formulaCursor = 0
+        markdown.enumerateSubstrings(in: markdown.startIndex..<markdown.endIndex, options: .byLines) {
+            line, _, enclosingRange, _ in
+            guard let line else { return }
+            let global = NSRange(enclosingRange, in: markdown)
+            let source = line as NSString
+            let full = NSRange(location: 0, length: source.length)
+            let fenceMatch = fences.firstMatch(in: line, range: full)
+            let marker = fenceMatch.map { source.substring(with: $0.range(at: 1)) }
+            let tail = fenceMatch.map { source.substring(with: $0.range(at: 2)) } ?? ""
+            if let open = fence {
+                result.append(global)
+                if let marker, marker.first == open.marker, marker.count >= open.count,
+                   tail.trimmingCharacters(in: .whitespaces).isEmpty {
+                    fence = nil
+                }
+                return
+            }
+            if let marker, let first = marker.first,
+               first != "`" || !tail.contains("`") {
+                fence = (first, marker.count)
+                result.append(global)
+                return
+            }
+            // An indented, table-shaped code example is not a top-level native TABLE.
+            if line.hasPrefix("    ") || line.hasPrefix("\t") {
+                result.append(global)
+                return
+            }
+            let runs = ticks.matches(in: line, range: full).map(\.range)
+            var nextByLength: [Int: Int] = [:]
+            var closingByOpening: [Int: Int] = [:]
+            for index in runs.indices.reversed() {
+                closingByOpening[index] = nextByLength[runs[index].length]
+                nextByLength[runs[index].length] = index
+            }
+            var index = 0
+            while index < runs.count {
+                let opening = runs[index]
+                let location = global.location + opening.location
+                while formulaCursor < formulas.count, NSMaxRange(formulas[formulaCursor]) <= location {
+                    formulaCursor += 1
+                }
+                if formulaCursor < formulas.count, formulas[formulaCursor].location <= location,
+                   NSMaxRange(formulas[formulaCursor]) > location {
+                    index += 1
+                    continue
+                }
+                var slashCount = 0
+                var cursor = opening.location
+                while cursor > 0, source.character(at: cursor - 1) == 92 {
+                    slashCount += 1
+                    cursor -= 1
+                }
+                if slashCount.isMultiple(of: 2), let closing = closingByOpening[index] {
+                    result.append(NSRange(location: location,
+                                          length: NSMaxRange(runs[closing]) - opening.location))
+                    index = closing + 1
+                } else {
+                    index += 1
+                }
+            }
+        }
+        return result
     }
 
     private func isInsideMarkdownTable(_ matchRange: NSRange, in markdown: NSString) -> Bool {

@@ -52,7 +52,7 @@ final class PreparedNativeMarkdownTableRender {
 }
 
 struct NativeMarkdownTableRenderCacheKey: Hashable {
-    private static let currentRendererVersion = "native-table-v3"
+    private static let currentRendererVersion = "native-table-v4-literal-formula"
 
     let markdown: String
     let containerWidthBits: UInt64

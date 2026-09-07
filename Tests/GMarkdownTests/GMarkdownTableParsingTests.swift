@@ -4,6 +4,86 @@ import XCTest
 @testable import GMarkdown
 
 final class GMarkdownTableParsingTests: XCTestCase {
+    func testFormulaPunctuationProducesOneExactTextNodeBetweenMarkers() throws {
+        let envelopes = [
+            #"$\text{x}_\text{a}+\text{y}_\text{b}$"#,
+            #"$a*b+c*d$"#,
+            #"$\text{[x](y) ![a](b) <i> &amp; &#95; `z` ~~q~~}$"#,
+            #"$\left|x\right|+\|y\|$"#,
+            #"$\text{中文 é 👩🏽‍🔬}+x_1$"#,
+            #"$$x_1+y_2$$"#,
+            #"\(x_1+y_2\)"#,
+            #"\[x_1+y_2\]"#
+        ]
+        for envelope in envelopes {
+            let table = try parseSingleTable(markdown: "| 值 |\n| --- |\n| \(envelope) |")
+            XCTAssertEqual(tableShape(table), TableShape(columns: 1, bodyRows: 1, cellsPerRow: [1]))
+            let row = try XCTUnwrap(Array(table.body.rows).first)
+            let cell = try XCTUnwrap(Array(row.cells).first)
+            let children = Array(cell.children)
+            XCTAssertEqual(children.count, 3, envelope)
+            guard children.count == 3 else { continue }
+            XCTAssertEqual((children[0] as? InlineHTML)?.rawHTML, "<LaTex>")
+            XCTAssertEqual((children[1] as? Text)?.plainText, envelope)
+            XCTAssertEqual((children[2] as? InlineHTML)?.rawHTML, "</LaTex>")
+        }
+    }
+
+    func testProtectedFormulaDoesNotConsumeNeighboringMarkdownOrTableColumns() throws {
+        let envelope = #"$\text{x}_\text{a}+\text{y}_\text{b}$"#
+        let markdown = "| \(envelope) | 备注 |\n| --- | --- |\n| **前** \(envelope) *后* | `literal` |"
+        let table = try parseSingleTable(markdown: markdown)
+        XCTAssertEqual(tableShape(table), TableShape(columns: 2, bodyRows: 1, cellsPerRow: [2]))
+        XCTAssertEqual(markupText(try XCTUnwrap(Array(table.head.cells).first)), "<LaTex>\(envelope)</LaTex>")
+        let row = try XCTUnwrap(Array(table.body.rows).first)
+        let cells = Array(row.cells)
+        XCTAssertTrue(cells[0].children.contains { $0 is Strong })
+        XCTAssertTrue(cells[0].children.contains { $0 is Emphasis })
+        XCTAssertTrue(cells[1].children.contains { $0 is InlineCode })
+    }
+
+    func testFormulaProtectionKeepsOriginalCandidateBudgetAndDoesNotDoubleDecodeEntities() throws {
+        let oversized = "$" + String(repeating: "x", count: 2998) + "$"
+        let markdown = "| 值 |\n| --- |\n| \(oversized) |"
+        XCTAssertEqual(LaTeXPreprocessor().process(markdown), markdown)
+        let envelope = #"$\text{&amp; &#95; &#x5c;}}$"#
+        let table = try parseSingleTable(markdown: "| 值 |\n| --- |\n| \(envelope) |")
+        let row = try XCTUnwrap(Array(table.body.rows).first)
+        XCTAssertEqual(markupText(try XCTUnwrap(Array(row.cells).first)), "<LaTex>\(envelope)</LaTex>")
+    }
+
+    func testFormulaProtectionDoesNotLeakCharacterReferencesIntoLegacyCodeContexts() throws {
+        let formula = #"$x_1$"#
+        let tableSource = "| 值 |\n| --- |\n| \(formula) |"
+        for fence in ["```", "~~~~"] {
+            let source = "\(fence)\n\(tableSource)\n\(fence)"
+            let expected = source.replacingOccurrences(of: formula, with: "<LaTex>\(formula)</LaTex>")
+            XCTAssertEqual(LaTeXPreprocessor().process(source), expected)
+        }
+        for delimiters in ["`", "``"] {
+            let source = "| 值 |\n| --- |\n| \(delimiters)\(formula)\(delimiters) |"
+            let expected = source.replacingOccurrences(of: formula, with: "<LaTex>\(formula)</LaTex>")
+            XCTAssertEqual(LaTeXPreprocessor().process(source), expected)
+        }
+        let source = "    | 值 |\n    | --- |\n    | \(formula) |"
+        XCTAssertEqual(LaTeXPreprocessor().process(source),
+                       source.replacingOccurrences(of: formula, with: "<LaTex>\(formula)</LaTex>"))
+    }
+
+    func testCodeSiblingDoesNotDisableFormulaProtectionAndFencesDoNotLeakState() throws {
+        let envelope = #"$\text{x}_\text{a}+\text{y}_\text{b}$"#
+        let markdown = "```\nliteral\n```\n\n| 值 |\n| --- |\n| ``$literal$`` \(envelope) |"
+        let markups = GMarkParser().parseMarkdownToMarkups(markdown: markdown)
+        XCTAssertTrue(markups.first is CodeBlock)
+        let table = try XCTUnwrap(markups.last as? Table)
+        let row = try XCTUnwrap(Array(table.body.rows).first)
+        let cell = try XCTUnwrap(Array(row.cells).first)
+        let text = cell.children.compactMap { $0 as? Text }.map(\.plainText)
+        XCTAssertTrue(text.contains(envelope))
+        XCTAssertEqual(cell.children.compactMap { $0 as? InlineCode }.first?.code,
+                       "<LaTex>$literal$</LaTex>")
+    }
+
     func testFiveColumnTableStructureAndInlineLatex() throws {
         let table = try parseSingleTable(fixture: "table_five_columns")
         let headers = Array(table.head.cells)

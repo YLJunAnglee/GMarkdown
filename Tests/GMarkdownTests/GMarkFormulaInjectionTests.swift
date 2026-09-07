@@ -13,6 +13,65 @@ import XCTest
 @testable import GMarkdown
 
 final class GMarkFormulaInjectionTests: XCTestCase {
+    func testCompleteFormulaEnvelopesReachInjectedBackendOnceInHeaderAndBody() throws {
+        let single = #"\text{x}_\text{a}+\text{y}_\text{b}"#
+        let first = #"\text{x}_\text{a}"#
+        let second = #"\text{y}_\text{b}"#
+        let pipe = #"\left|x\right|"#
+        let renderer = FormulaRendererSpy(cacheIdentity: "literal-formula-transport")
+        let markdown = "| $\(single)$ | 值 |\n| --- | --- |\n| $\(single)$ | $\(first)$、$\(second)$ |\n| $\(pipe)$ | 普通文字 |"
+        let view = NativeMarkdownTableView()
+        let metrics = try XCTUnwrap(view.render(
+            markdown: markdown, containerWidth: 370,
+            formulaConfiguration: .init(renderer: renderer, failurePolicy: .rawFormula)
+        ).metrics)
+        XCTAssertEqual(renderer.requests.map(\.latex), [single, single, first, second, pipe])
+        XCTAssertEqual(metrics.columnCount, 2)
+        XCTAssertEqual(metrics.bodyRowCount, 2)
+        XCTAssertEqual(metrics.formulaDiagnostics.map(\.ordinal), [0, 1, 2, 3, 4])
+        XCTAssertEqual(metrics.formulaDiagnostics.map(\.row), [0, 1, 1, 1, 2])
+        XCTAssertEqual(metrics.formulaDiagnostics.map(\.column), [0, 0, 1, 1, 0])
+        XCTAssertEqual(metrics.formulaDiagnostics.map(\.isHeader), [true, false, false, false, false])
+        XCTAssertTrue(metrics.warnings.isEmpty)
+        XCTAssertEqual(renderCacheKey(markdown: markdown).rendererVersion, "native-table-v4-literal-formula")
+    }
+
+    func testProtectedFormulaFallbackKeepsExactEnvelopeAndOneDiagnostic() throws {
+        let payload = #"\text{x}_\text{a}+\text{y}_\text{b}+\text{&amp; <tag>}"#
+        let renderer = FormulaRendererSpy(cacheIdentity: "literal-formula-fallback", fallbackLatex: payload)
+        let table = try parseSingleTable("| 值 |\n| --- |\n| 前 $\(payload)$ 后 |")
+        var style = MarkdownStyle.defaultStyle()
+        style.maxContainerWidth = 370
+        var visitor = GMarkupTableVisitor(
+            style: style,
+            formulaConfiguration: .init(renderer: renderer, failurePolicy: .rawFormula),
+            traitCollection: UITraitCollection(userInterfaceStyle: .light), displayScale: 2
+        )
+        let rendered = visitor.visit(table)
+        XCTAssertEqual(renderer.requests.map(\.latex), [payload])
+        XCTAssertEqual(rendered.bodys?[0][0].string, "前 $\(payload)$ 后")
+        XCTAssertEqual(rendered.formulaDiagnostics.count, 1)
+        XCTAssertEqual(rendered.latexFailureCount, 1)
+        XCTAssertEqual(rendered.formulaDiagnostics.first?.reasonCode, .unknown)
+    }
+
+    func testProtectedFormulaRejectWholeTableStillReturnsOneFailure() throws {
+        let payload = #"\text{x}_\text{a}+\text{y}_\text{b}"#
+        let renderer = FormulaRendererSpy(cacheIdentity: "literal-formula-reject", fallbackLatex: payload)
+        let view = NativeMarkdownTableView()
+        let result = view.render(
+            markdown: "| 值 |\n| --- |\n| $\(payload)$ |", containerWidth: 370,
+            formulaConfiguration: .init(renderer: renderer, failurePolicy: .rejectWholeTable)
+        )
+        guard case let .failure(.formulaRenderingFailed(diagnostics)) = result else {
+            return XCTFail("Rejected formula must not leave a partially prepared TABLE")
+        }
+        XCTAssertEqual(renderer.requests.map(\.latex), [payload])
+        XCTAssertEqual(diagnostics.count, 1)
+        XCTAssertEqual(diagnostics.first?.ordinal, 0)
+        XCTAssertEqual(view.intrinsicContentSize, .zero)
+    }
+
     override func setUp() {
         super.setUp()
         NativeMarkdownTableView.clearRenderCache()

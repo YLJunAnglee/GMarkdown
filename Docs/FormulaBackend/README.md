@@ -1,5 +1,56 @@
 # GMarkdown TABLE 公式后端注入契约
 
+## 2026-09-07：TABLE 公式完整性修复（发布前验收通过）
+
+基线为 `c19ae4b`，用户已确认提交、推送本批修复并更新 AIEndorser 依赖。
+最终接入 revision 以调用方工程和两份 Package.resolved 的一致锁定为准。
+BookNext 真机回归已证明：`text` 命令与下划线的组合可被 Markdown 解释为强调，
+导致 1 条公式变成 3 次后端调用、2 条公式变成 4 次调用。
+下列历史验收不覆盖此问题，不能用过去的全绿结论替代本批测试。
+
+### 修复位置与约束
+
+- 只调整原 LaTeXPreprocessor 的已识别 TABLE 分支，在交给 Markdown 解析前，将公式 envelope 中
+  ASCII 标点编码为十进制字符引用。CommonMark 解码后形成 literal Text，不重新解释其中的标记。
+  依据：[CommonMark 2.5 字符引用](https://spec.commonmark.org/0.31.2/#entity-and-numeric-character-references)。
+- 反斜线、下划线、星号、尖括号、链接/代码标点、实体符号和竖线统一保护；不是按具体命令加特判。
+  Unicode 保持原样；已有实体字符串不会进行第二次解码；失败时仍返回完整原始 envelope。
+- 原候选正则、3000 字符阈值、TABLE 行结构和表外长式换行策略不变。不修改调用方 Markdown、后端准入、
+  公式语义或结果校验；不引入共享占位符字典、第二后端或 Visitor 层字符串拼接。
+- 代码 span / 顶层 fence / 缩进示例排除字符引用保护，因为代码内不会解码字符引用。
+  保留这类上下文原有 wrapping 行为，不宣称本批已修复旧版代码内美元识别；调用方现有 code-span 准入仍需保留。
+  原公式先开始时，其中的反引号属于公式；代码 span 先开始时，其内美元内容沿用旧代码展示行为。
+- 内存缓存 renderer version 升为 `native-table-v4-literal-formula`，避免新解析结果与旧 prepared 身份混淆。
+  公共 API、布局、串行后端、取消机制和两种失败策略不变。
+
+### 回归与验证状态
+
+新增 8 项 XCTest：5 项解析/边界测试，3 项注入/失败策略测试。
+
+1. 公式在 AST 中只对应一个完整 Text，前后是独立 LaTex 标签；覆盖下划线、星号、链接/HTML/实体/代码样式字符、
+   竖线、组合 Unicode 和四种既有 delimiter。
+2. 表头/正文、同 cell 多公式、邻接强调/代码、单元格数量和遍历顺序不变。
+3. 原始长度预算、实体不重复解码、代码上下文不泄漏新编码、fence 关闭后恢复正常保护。
+4. 完整 payload 只进入注入后端一次，ordinal/row/column/header 对齐。
+5. rawFormula 保留精确 envelope 与一条失败诊断；rejectWholeTable 仍整表拒绝且不留下半成品。
+
+静态检查：4 个 Swift 文件的 `swiftc -frontend -parse` 和 `git diff --check` 通过。
+用户于 iPhone 17 / iOS Simulator 26.3.1 完成 Package 编译和完整 XCTest：44/44 通过，
+0 失败、0 跳过、0 expected failure；包含本批新增 8 项。已读取 2026-09-07 15:25:51 的 xcresult 核验。
+构建报告 0 error；13 条警告记录去重为 12 项，与 2026-09-06 的结果一致，无本批新增警告。
+发布前 diff review 未发现本批阻塞项。BookNext 接入回归、Example 和多设备视觉检查仍待完成，不能以 Package 全绿代替。
+字符引用长度扩张至多约 6 倍标点数量，原候选预算在编码前执行；未建立新的性能通过结论。
+
+### 接入顺序
+
+1. 已完成本地 Package 的 GMarkdown scheme、iOS 模拟器完整 Package Tests：44/44。
+2. 检查 Example 既有 TABLE 入口、raw fallback 与正常公式，保留 iPhone/iPad 的后续视觉验收。
+3. 用户已确认提交/发布明确 revision；不直接修改 DerivedData checkout。
+4. 经确认将 AIEndorser 切到该 revision 后，先复跑 6 项 `testRC0`，再运行完整 BookNextTests。
+   两个 TABLE case 必须保持原来的严格 expected；在 App 仍锁定旧版时重复运行仍会报原来的错。
+
+本批只解决 TABLE 公式传输完整性，不等于公式白名单扩容、编号 SVG、表格 br 内容适配或公式局部挖空已完成。
+
 ## 状态
 
 - 开发基线：`3ad09372d46c40e864bc47c2560ca78cb962205f`，包含原生 TABLE 候选

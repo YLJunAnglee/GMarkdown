@@ -12,32 +12,15 @@ class GMarkLaTexToSVGConverter {
     // A reference to our MathJax instance
     private var mathjax: MathJax
     
-    let selectedPackages = [
-        TeXInputProcessorOptions.Packages.ams,          // 用于扩展数学符号和环境
-        TeXInputProcessorOptions.Packages.base,         // 基础包，必要
-        TeXInputProcessorOptions.Packages.bbox,         // 调整边框和背景色
-        TeXInputProcessorOptions.Packages.boldsymbol,   // 数学符号加粗
-        TeXInputProcessorOptions.Packages.color,        // 文本和公式颜色
-        TeXInputProcessorOptions.Packages.newcommand,   // 定义新的命令和宏
-        TeXInputProcessorOptions.Packages.noerrors,     // 出错时不显示错误信息
-        TeXInputProcessorOptions.Packages.noundefined,  // 处理未定义命令
-        TeXInputProcessorOptions.Packages.unicode,      // 支持 Unicode 字符
-        TeXInputProcessorOptions.Packages.mathtools     // amsmath 的扩展，提供更多工具
-    ];
-    
-    // The TeX input processor options - load all packages.
-    private let inputOptions = TeXInputProcessorOptions(loadPackages:[
-        TeXInputProcessorOptions.Packages.ams,          // 用于扩展数学符号和环境
-        TeXInputProcessorOptions.Packages.base,         // 基础包，必要
-        TeXInputProcessorOptions.Packages.bbox,         // 调整边框和背景色
-        TeXInputProcessorOptions.Packages.boldsymbol,   // 数学符号加粗
-        TeXInputProcessorOptions.Packages.color,        // 文本和公式颜色
-        TeXInputProcessorOptions.Packages.newcommand,   // 定义新的命令和宏
-        TeXInputProcessorOptions.Packages.noerrors,     // 出错时不显示错误信息
-        TeXInputProcessorOptions.Packages.noundefined,  // 处理未定义命令
-        TeXInputProcessorOptions.Packages.unicode,      // 支持 Unicode 字符
-        TeXInputProcessorOptions.Packages.mathtools     // amsmath 的扩展，提供更多工具
-    ], processEscapes: true)
+    // Do not restrict MathJax to a hand-picked subset. Project books contain
+    // chemistry and extensible-arrow commands: `\\ce` needs `mhchem`, while
+    // `\\xlongequal` needs `extpfeil`. Both are included in MathJaxSwift's
+    // complete package set; excluding them made `noundefined` render the raw
+    // command in red.
+    private let inputOptions = TeXInputProcessorOptions(
+        loadPackages: TeXInputProcessorOptions.Packages.all,
+        processEscapes: true
+    )
     
 
     
@@ -102,8 +85,13 @@ class GMarkLaTexToSVGConverter {
     ///
     /// - Parameter texInput: The input string.
     /// - Returns: SVG file data as a String.
-    func convert(_ texInput: String) throws -> String {
-        return try mathjax.tex2svg(texInput,
+    func convert(_ texInput: String, display: Bool = true) throws -> String {
+        let conversionOptions = ConversionOptions(
+            display: display, em: self.conversionOptions.em, ex: self.conversionOptions.ex,
+            containerWidth: self.conversionOptions.containerWidth,
+            lineWidth: self.conversionOptions.lineWidth, scale: self.conversionOptions.scale
+        )
+        let svg = try mathjax.tex2svg(texInput,
                                    css: false,
                                    assistiveMml: false,
                                    container: false,
@@ -112,5 +100,56 @@ class GMarkLaTexToSVGConverter {
                                    documentOptions: documentOptions,
                                    inputOptions: inputOptions,
                                    outputOptions: outputOptionsv2)
+        return try GMarkSVGTextOutliner.outline(GMarkSVGViewport.standalone(svg))
+    }
+}
+
+/// MathJax numbered equations use a responsive root with nested SVGs for labels.
+/// A standalone image has no containing HTML viewport: use MathJax's own minimum
+/// width, preserving nested viewBoxes, aspect ratios, paths and label positioning.
+enum GMarkSVGViewport {
+    static func standalone(_ source: String) -> String {
+        guard let rootRange = source.range(of: #"<svg\b[^>]*>"#, options: .regularExpression) else { return source }
+        let root = String(source[rootRange])
+        guard let widthRange = root.range(of: #"\swidth\s*=\s*["']100%["']"#, options: .regularExpression),
+              let styleRange = root.range(of: #"\sstyle\s*=\s*"[^"]*""#, options: .regularExpression),
+              let minimumRange = root[styleRange].range(of: #"(?:^|[;"\s])min-width\s*:\s*[0-9]+(?:\.[0-9]+)?ex\s*(?:;|")"#,
+                                                       options: .regularExpression) else { return source }
+        let minimum = String(root[minimumRange])
+        guard let valueRange = minimum.range(of: #"[0-9]+(?:\.[0-9]+)?ex"#, options: .regularExpression) else { return source }
+        let value = String(minimum[valueRange])
+        guard let width = Double(value.dropLast(2)), width.isFinite, width > 0 else { return source }
+        let fixedRoot = root.replacingCharacters(in: widthRange, with: " width=\"\(value)\"")
+        #if DEBUG
+        print("[FormulaSVG] viewport=standalone width=\(value) previous=100%")
+        #endif
+        let fixed = source.replacingCharacters(in: rootRange, with: fixedRoot)
+        return explicitChildViewports(fixed, root: fixedRoot, width: width)
+    }
+
+    /// Numbered MathJax SVGs omit child width/height and rely on browser defaults.
+    /// Give the known table/label viewports explicit dimensions for image decoders.
+    private static func explicitChildViewports(_ source: String, root: String, width: Double) -> String {
+        guard !root.contains("viewBox="),
+              let heightAttribute = root.range(of: #"\sheight="[0-9]+(?:\.[0-9]+)?ex""#, options: .regularExpression),
+              let number = root[heightAttribute].range(of: #"[0-9]+(?:\.[0-9]+)?"#, options: .regularExpression),
+              let height = Double(root[number]), height.isFinite, height > 0,
+              let regex = try? NSRegularExpression(pattern: #"<svg\b[^>]*>"#) else { return source }
+        var result = source
+        var count = 0
+        let ranges = regex.matches(in: source, range: NSRange(source.startIndex..., in: source))
+        for match in ranges.dropFirst().reversed() {
+            guard let range = Range(match.range, in: result) else { continue }
+            let tag = String(result[range])
+            guard tag.contains("data-table=\"true\"") || tag.contains("data-labels=\"true\"") else { continue }
+            guard tag.range(of: #"\s(?:width|height|x|y)\s*="#, options: .regularExpression) == nil else { continue }
+            let explicit = String(tag.dropLast()) + " width=\"\(width)\" height=\"\(height)\">"
+            result.replaceSubrange(range, with: explicit)
+            count += 1
+        }
+        #if DEBUG
+        print("[FormulaSVG] explicitChildViewports=\(count) width=\(width) height=\(height)")
+        #endif
+        return result
     }
 }

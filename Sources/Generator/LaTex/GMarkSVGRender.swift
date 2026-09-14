@@ -381,7 +381,19 @@ extension GMarkSVGRender {
     
     /// 渲染LaTeX SVG为适合屏幕显示的图片
     func renderLaTeXSVG(data: Data, options: LaTeXRenderOptions = .default) -> UIImage? {
-        guard let originalSize = getSVGOriginalSize(from: data) else { return nil }
+        #if DEBUG
+        if let source = String(data: data, encoding: .utf8),
+           let start = source.range(of: "<svg"),
+           let end = source.range(of: ">", range: start.lowerBound..<source.endIndex) {
+            print("[FormulaSVG] root=\(source[start.lowerBound..<end.upperBound])")
+        }
+        #endif
+        guard let originalSize = getSVGOriginalSize(from: data) else {
+            #if DEBUG
+            print("[FormulaSVG] failure=canvasSizeUnavailable bytes=\(data.count)")
+            #endif
+            return nil
+        }
         debugPrint("SVG Original  Size: \(originalSize)")
         // 计算合适的显示尺寸
         let targetSize = calculateLaTeXDisplaySize(
@@ -389,6 +401,9 @@ extension GMarkSVGRender {
             options: options
         )
         if targetSize.height > 1000 || targetSize.width > 1000 {
+            #if DEBUG
+            print("[FormulaSVG] failure=targetSizeLimit original=\(originalSize) target=\(targetSize)")
+            #endif
             debugPrint("SVG target Size is too large, using original size: \(originalSize)")
             return nil
         }
@@ -398,7 +413,11 @@ extension GMarkSVGRender {
             preserveAspectRatio: true, targetSize: targetSize
         )
         
-        return decodedImage(with: data, options: renderOptions)
+        let image = decodedImage(with: data, options: renderOptions)
+        #if DEBUG
+        print("[FormulaSVG] stage=decodeImage success=\(image != nil) original=\(originalSize) target=\(targetSize)")
+        #endif
+        return image
     }
     
     /// 批量渲染LaTeX SVG

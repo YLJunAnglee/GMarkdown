@@ -348,6 +348,11 @@ extension GMarkupVisitor {
 extension GMarkupVisitor {
     
     private mutating func processInlineHTML(_ inlineHTML: InlineHTML) -> Result {
+        if style.useMPTextKit,
+           let image = inlineImage(from: inlineHTML.rawHTML) {
+            return processImageElement(source: image.source, fallbackText: image.alt)
+        }
+
         if !ignoreLatex {
             switch inlineHTML.plainText {
             case "<LaTex>":
@@ -372,6 +377,35 @@ extension GMarkupVisitor {
             return defaultVisit(inlineHTML)
         }
     }
+
+    /// swift-markdown represents a raw HTML image inside a table as InlineHTML,
+    /// rather than Markdown.Image. Treat the supported `<img src="…">` form like
+    /// a Markdown image so it reaches the configured image loader.
+    private func inlineImage(from rawHTML: String) -> (source: String, alt: String?)? {
+        guard rawHTML.range(of: #"<img\b"#, options: .regularExpression) != nil,
+              let source = inlineHTMLAttribute(named: "src", in: rawHTML) else {
+            return nil
+        }
+        return (source, inlineHTMLAttribute(named: "alt", in: rawHTML))
+    }
+
+    private func inlineHTMLAttribute(named name: String, in rawHTML: String) -> String? {
+        guard let match = rawHTML.range(
+            of: #"\b\#(name)\s*=\s*([\"'])(.*?)\1"#,
+            options: .regularExpression
+        ) else {
+            return nil
+        }
+        let attribute = String(rawHTML[match])
+        guard let value = attribute.range(
+            of: #"([\"'])(.*?)\1"#,
+            options: .regularExpression
+        ) else {
+            return nil
+        }
+        let quotedValue = String(attribute[value])
+        return String(quotedValue.dropFirst().dropLast())
+    }
     
     private mutating func processHTMLBlock(_ html: HTMLBlock) -> Result {
         return createDefaultAttributedString(from: html.rawHTML)
@@ -381,14 +415,14 @@ extension GMarkupVisitor {
 // MARK: - Image Processing
 extension GMarkupVisitor {
     
-    private func processImageElement(source: String) -> NSAttributedString {
+    private func processImageElement(source: String, fallbackText: String? = nil) -> NSAttributedString {
         if Thread.isMainThread {
-            return createImageAttributedString(source: source)
+            return createImageAttributedString(source: source, fallbackText: fallbackText)
         } else {
             let semaphore = DispatchSemaphore(value: 0)
             var resultString: NSAttributedString!
             DispatchQueue.main.async {
-                resultString = self.createImageAttributedString(source: source)
+                resultString = self.createImageAttributedString(source: source, fallbackText: fallbackText)
                 semaphore.signal()
             }
             
@@ -397,11 +431,12 @@ extension GMarkupVisitor {
         }
     }
     
-    private func createImageAttributedString(source: String) -> NSAttributedString {
+    private func createImageAttributedString(source: String, fallbackText: String?) -> NSAttributedString {
         return MarkdownStyleProcessor.createImageAttributedString(
             source: source,
             style: style,
-            imageLoader: imageLoader
+            imageLoader: imageLoader,
+            fallbackText: fallbackText
         )
     }
 }
@@ -468,7 +503,5 @@ private struct Renderer {
         }
     }
 }
-
-
 
 

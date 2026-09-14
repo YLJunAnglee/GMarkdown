@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BE0810010000000000000005 /* projectBook.jsonl in Resources */ = {isa = PBXBuildFile; fileRef = BE0810010000000000000006 /* projectBook.jsonl */; };
+		BE0810010000000000000007 /* Books in Resources */ = {isa = PBXBuildFile; fileRef = BE0810010000000000000008 /* Books */; };
+		BE0810010000000000000003 /* projectContent.md in Resources */ = {isa = PBXBuildFile; fileRef = BE0810010000000000000004 /* projectContent.md */; };
+		BE0810010000000000000001 /* ProjectContentViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE0810010000000000000002 /* ProjectContentViewController.swift */; };
 		01C7B035BED50979225F5C40 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D76B57722F3D40404987BA64 /* SceneDelegate.swift */; };
 		0977BD9B39BE57E852EDC86E /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 84391641D4BB93873B931242 /* LaunchScreen.storyboard */; };
 		13D98D2720E5CF4446F1756B /* NukeImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C668D18BDBB1E7F3E2ACCD51 /* NukeImageLoader.swift */; };
@@ -30,6 +34,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		BE0810010000000000000006 /* projectBook.jsonl */ = {isa = PBXFileReference; lastKnownFileType = text; path = projectBook.jsonl; sourceTree = "<group>"; };
+		BE0810010000000000000008 /* Books */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Books; sourceTree = "<group>"; };
+		BE0810010000000000000004 /* projectContent.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = projectContent.md; sourceTree = "<group>"; };
+		BE0810010000000000000002 /* ProjectContentViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectContentViewController.swift; sourceTree = "<group>"; };
 		114640C16E263162F58A1B43 /* markdown */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdown; sourceTree = "<group>"; };
 		2B64E00B2E155290002B71C2 /* markdownLatex */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdownLatex; sourceTree = "<group>"; };
 		2B6C0D2C2E0F0B8A00F6D641 /* RealTimeRenderController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealTimeRenderController.swift; sourceTree = "<group>"; };
@@ -70,6 +78,9 @@
 			isa = PBXGroup;
 			children = (
 				2B64E00B2E155290002B71C2 /* markdownLatex */,
+				BE0810010000000000000008 /* Books */,
+				BE0810010000000000000006 /* projectBook.jsonl */,
+				BE0810010000000000000004 /* projectContent.md */,
 				2B6C0D302E182D9C00F6D641 /* markdownTemp */,
 				114640C16E263162F58A1B43 /* markdown */,
 				66BC7B35F5F1709820DC6394 /* markdownv2 */,
@@ -108,6 +119,7 @@
 				AA1727BC9EC0B761FAAF53EE /* MarkdownRenderController.swift */,
 				C668D18BDBB1E7F3E2ACCD51 /* NukeImageLoader.swift */,
 				D76B57722F3D40404987BA64 /* SceneDelegate.swift */,
+				BE0810010000000000000002 /* ProjectContentViewController.swift */,
 				DB231D7527DBBE4BA252BC18 /* TextViewViewController.swift */,
 				2B6C0D2C2E0F0B8A00F6D641 /* RealTimeRenderController.swift */,
 				4D4F40CB2FCF10C84C18B559 /* ViewController.swift */,
@@ -185,6 +197,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				2B052D052D82B70500BAE956 /* markdown in Resources */,
+				BE0810010000000000000007 /* Books in Resources */,
+				BE0810010000000000000005 /* projectBook.jsonl in Resources */,
+				BE0810010000000000000003 /* projectContent.md in Resources */,
 				2B6C0D312E182DA900F6D641 /* markdownTemp in Resources */,
 				2B64E00C2E1552A0002B71C2 /* markdownLatex in Resources */,
 				2B052D062D82B70500BAE956 /* markdownv2 in Resources */,
@@ -209,6 +224,7 @@
 				13D98D2720E5CF4446F1756B /* NukeImageLoader.swift in Sources */,
 				01C7B035BED50979225F5C40 /* SceneDelegate.swift in Sources */,
 				2B6C0D2D2E0F0B8A00F6D641 /* RealTimeRenderController.swift in Sources */,
+				BE0810010000000000000001 /* ProjectContentViewController.swift in Sources */,
 				1C5B29B355BAE2B7F413678D /* TextViewViewController.swift in Sources */,
 				6AF6B6B2AB0DDEE4160BF3D0 /* ViewController.swift in Sources */,
 			);

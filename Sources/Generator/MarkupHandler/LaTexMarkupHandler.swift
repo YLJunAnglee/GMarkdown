@@ -16,17 +16,7 @@ public class LaTexMarkupHandler: MarkupHandler {
     public init() {}
     
     public func canHandle(_ markup: Markup) -> Bool {
-        if markup is Paragraph {
-            let markSub = markup.child(at: 0)
-            let markSubLast = markup.child(at: markup.childCount - 1)
-            
-            if let latex = markSub as? InlineHTML, latex.plainText == "<LaTex>" {
-                if let latexs = markSubLast as? InlineHTML, latexs.plainText == "</LaTex>" {
-                    return true
-                }
-            }
-        }
-        return false
+        return GMarkFormulaMode.isBlockParagraph(markup)
     }
     
     public func handle(_ markup: Markup, style: Style?, imageLoader: (any ImageLoader)?) -> GMarkChunk {

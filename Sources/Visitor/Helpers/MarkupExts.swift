@@ -77,7 +77,7 @@ extension Markup {
             return true
         case let paragraph as Paragraph:
             if paragraph.child(at: 0) is Image { return true }
-            if let inlineHTML = paragraph.child(at: 0) as? InlineHTML, inlineHTML.plainText == "<LaTex>" {
+            if paragraph.parent is Document, GMarkFormulaMode.isBlockParagraph(paragraph) {
                 return true
             }
             return false

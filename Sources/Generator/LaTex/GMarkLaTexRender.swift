@@ -60,9 +60,7 @@ public class GMarkLaTexRender {
                                    method: RenderMethod = .fast) -> RenderResult {
         var visitor = GMarkupStringifier()
         let text = visitor.visit(markup)
-        let trimmedText = trimBrackets(from: text)
-        
-        return renderLatex(from: trimmedText, style: style, method: method)
+        return renderLatex(from: text, style: style, method: method)
     }
     
     /// 从文本渲染 LaTeX 图片
@@ -74,28 +72,20 @@ public class GMarkLaTexRender {
     public static func renderLatex(from text: String,
                                    style: Style,
                                    method: RenderMethod = .fast) -> RenderResult {
+        let mode = GMarkFormulaMode.detect(text)
         let trimmedText = trimBrackets(from: text)
-        
-        // 检查缓存
-        if let cachedImage = GMarkCachedManager.shared.getLatexCache(for: trimmedText) {
-            return RenderResult(
-                image: cachedImage,
-                size: cachedImage.size,
-                success: true
-            )
-        }
-        
+
         switch method {
         case .fast:
-            let result = renderWithSwiftMath(trimmedText, style: style)
+            let result = renderWithSwiftMath(trimmedText, style: style, mode: mode)
             if result.success {
                 return result
             } else {
                 // 快速渲染失败，尝试 SVG 后备方案
-                return renderWithSVG(trimmedText, style: style)
+                return renderWithSVG(trimmedText, style: style, mode: mode)
             }
         case .svgFallback:
-            return renderWithSVG(trimmedText, style: style)
+            return renderWithSVG(trimmedText, style: style, mode: mode)
         }
     }
     
@@ -118,23 +108,15 @@ public class GMarkLaTexRender {
     ///   - style: 渲染样式
     /// - Returns: 渲染结果
     public static func renderLatexSmart(from text: String, style: Style) -> RenderResult {
+        let mode = GMarkFormulaMode.detect(text)
         let trimmedText = trimBrackets(from: text)
-        
-        // 检查缓存
-        if let cachedImage = GMarkCachedManager.shared.getLatexCache(for: trimmedText) {
-            return RenderResult(
-                image: cachedImage,
-                size: cachedImage.size,
-                success: true
-            )
-        }
-        
+
         // 智能选择渲染方法
         let method = selectOptimalRenderMethod(for: trimmedText, style: style)
         
         switch method {
         case .fast:
-            let result = renderWithSwiftMath(trimmedText, style: style)
+            let result = renderWithSwiftMath(trimmedText, style: style, mode: mode)
             if result.success {
                 return result
             } else {
@@ -143,10 +125,10 @@ public class GMarkLaTexRender {
 #if DEBUG
                 print("SwiftMath 渲染失败，自动切换到 SVG 渲染")
 #endif
-                return renderWithSVG(trimmedText, style: style)
+                return renderWithSVG(trimmedText, style: style, mode: mode)
             }
         case .svgFallback:
-            return renderWithSVG(trimmedText, style: style)
+            return renderWithSVG(trimmedText, style: style, mode: mode)
         }
     }
     
@@ -155,6 +137,7 @@ public class GMarkLaTexRender {
     
     /// 根据 LaTeX 内容和样式选择最优的渲染方法
     private static func selectOptimalRenderMethod(for text: String, style: Style) -> RenderMethod {
+        if GMarkSVGTextOutliner.containsCJK(text) { return .svgFallback }
         // 复杂公式的特征检测
         let complexFeatures = [
             "\\begin{", "\\end{",           // 环境语法（矩阵、对齐等）
@@ -215,42 +198,46 @@ public class GMarkLaTexRender {
         _ latexText: String,
         fontSize: CGFloat = 16,
         textColor: UIColor = .black,
-        preferSVG: Bool = false
+        preferSVG: Bool = false,
+        mode explicitMode: GMarkFormulaMode? = nil
     ) -> RenderResult {
+        let mode = explicitMode ?? GMarkFormulaMode.detect(latexText)
         let trimmedText = trimBrackets(from: latexText)
-        
-        // 检查缓存
-        if let cachedImage = GMarkCachedManager.shared.getLatexCache(for: trimmedText) {
-            return RenderResult(
-                image: cachedImage,
-                size: cachedImage.size,
-                success: true
-            )
+        if !preferSVG && GMarkSVGTextOutliner.containsCJK(trimmedText) {
+            return RenderResult(image: nil, size: .zero, success: false, error: LaTexRenderError.cjkRequiresSVG)
         }
-        
+
         if preferSVG {
-            return renderWithSVGOnly(trimmedText)
+            return renderWithSVGOnly(trimmedText, mode: mode)
         } else {
-            return renderWithSwiftMathOnly(trimmedText, fontSize: fontSize, textColor: textColor)
+            return renderWithSwiftMathOnly(trimmedText, fontSize: fontSize, textColor: textColor, mode: mode)
         }
     }
     
     // MARK: - Private Methods
     
     /// 使用 SwiftMath 进行快速渲染
-    private static func renderWithSwiftMath(_ text: String, style: Style) -> RenderResult {
+    private static func renderWithSwiftMath(_ text: String, style: Style, mode: GMarkFormulaMode) -> RenderResult {
+        let cacheKey = "swiftMath|\(mode.rawValue)|\(style.fonts.current.pointSize)|\(style.colors.current)|\(text)"
+        if let image = GMarkCachedManager.shared.getLatexCache(for: cacheKey) {
+            return RenderResult(image: image, size: image.size, success: true)
+        }
+        guard !GMarkSVGTextOutliner.containsCJK(text) else {
+            return RenderResult(image: nil, size: .zero, success: false, error: LaTexRenderError.cjkRequiresSVG)
+        }
         var mathImage = MathImage(
             latex: text,
             fontSize: style.fonts.current.pointSize,
             textColor: style.colors.current
         )
         mathImage.font = MathFont.xitsFont
+        mathImage.labelMode = mode == .block ? .display : .text
         
         let (error, image, _) = mathImage.asImage()
         
         if let image = image {
             // 缓存结果
-            GMarkCachedManager.shared.setLatexCache(image, for: text)
+            GMarkCachedManager.shared.setLatexCache(image, for: cacheKey)
             return RenderResult(
                 image: image,
                 size: image.size,
@@ -267,10 +254,14 @@ public class GMarkLaTexRender {
     }
     
     /// 使用 SVG 转换器进行渲染
-    private static func renderWithSVG(_ text: String, style: Style) -> RenderResult {
+    private static func renderWithSVG(_ text: String, style: Style, mode: GMarkFormulaMode) -> RenderResult {
+        let cacheKey = "svg|\(mode.rawValue)|\(text)"
+        if let image = GMarkCachedManager.shared.getLatexCache(for: cacheKey) {
+            return RenderResult(image: image, size: image.size, success: true)
+        }
         do {
             let converter = try GMarkLaTexToSVGConverter()
-            let svgResult = try converter.convert(text)
+            let svgResult = try converter.convert(text, display: mode == .block)
             
 #if DEBUG
             print("SVG 渲染结果: \(svgResult)")
@@ -282,7 +273,7 @@ public class GMarkLaTexRender {
                     // 检查渲染结果是否有效
                     debugPrint("SVG 渲染结果尺寸: \(image.size)")
                     // 缓存结果
-                    GMarkCachedManager.shared.setLatexCache(image, for: text)
+                    GMarkCachedManager.shared.setLatexCache(image, for: cacheKey)
                     return RenderResult(
                         image: image,
                         size: image.size,
@@ -309,19 +300,27 @@ public class GMarkLaTexRender {
     }
     
     /// 仅使用 SwiftMath 进行渲染（便捷方法）
-    private static func renderWithSwiftMathOnly(_ text: String, fontSize: CGFloat, textColor: UIColor) -> RenderResult {
+    private static func renderWithSwiftMathOnly(_ text: String, fontSize: CGFloat, textColor: UIColor, mode: GMarkFormulaMode) -> RenderResult {
+        let cacheKey = "swiftMath|\(mode.rawValue)|\(fontSize)|\(textColor)|\(text)"
+        if let image = GMarkCachedManager.shared.getLatexCache(for: cacheKey) {
+            return RenderResult(image: image, size: image.size, success: true)
+        }
+        guard !GMarkSVGTextOutliner.containsCJK(text) else {
+            return RenderResult(image: nil, size: .zero, success: false, error: LaTexRenderError.cjkRequiresSVG)
+        }
         var mathImage = MathImage(
             latex: text,
             fontSize: fontSize,
             textColor: textColor
         )
         mathImage.font = MathFont.xitsFont
+        mathImage.labelMode = mode == .block ? .display : .text
         
         let (error, image, _) = mathImage.asImage()
         
         if let image = image {
             // 缓存结果
-            GMarkCachedManager.shared.setLatexCache(image, for: text)
+            GMarkCachedManager.shared.setLatexCache(image, for: cacheKey)
             return RenderResult(
                 image: image,
                 size: image.size,
@@ -338,16 +337,20 @@ public class GMarkLaTexRender {
     }
     
     /// 仅使用 SVG 进行渲染（便捷方法）
-    private static func renderWithSVGOnly(_ text: String) -> RenderResult {
+    private static func renderWithSVGOnly(_ text: String, mode: GMarkFormulaMode) -> RenderResult {
+        let cacheKey = "svg|\(mode.rawValue)|\(text)"
+        if let image = GMarkCachedManager.shared.getLatexCache(for: cacheKey) {
+            return RenderResult(image: image, size: image.size, success: true)
+        }
         do {
             let converter = try GMarkLaTexToSVGConverter()
-            let svgResult = try converter.convert(text)
+            let svgResult = try converter.convert(text, display: mode == .block)
             
             if let svgData = svgResult.data(using: .utf8) {
                 let svgRenderer = GMarkSVGRender.shared
                 if let image = svgRenderer.renderLaTeXSVG(data: svgData) {
                     // 缓存结果
-                    GMarkCachedManager.shared.setLatexCache(image, for: text)
+                    GMarkCachedManager.shared.setLatexCache(image, for: cacheKey)
                     return RenderResult(
                         image: image,
                         size: image.size,
@@ -377,6 +380,11 @@ public class GMarkLaTexRender {
     public static func trimBrackets(from string: String) -> String {
         let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
         
+        if (trimmedString.hasPrefix(#"\["#) && trimmedString.hasSuffix(#"\]"#)) ||
+            (trimmedString.hasPrefix(#"\("#) && trimmedString.hasSuffix(#"\)"#)) {
+            return String(trimmedString.dropFirst(2).dropLast(2))
+        }
+
         // 检查并去掉方括号
         if trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]") {
             return String(trimmedString.dropFirst().dropLast())
@@ -400,12 +408,15 @@ public class GMarkLaTexRender {
 // MARK: - Error Types
 
 public enum LaTexRenderError: Error, LocalizedError {
+    case cjkRequiresSVG
     case svgConverterInitFailed
     case svgRenderFailed
     case invalidLatexText
     
     public var errorDescription: String? {
         switch self {
+        case .cjkRequiresSVG:
+            return "当前 SwiftMath 字体路径无法完整显示中文，请使用 SVG 路径"
         case .svgConverterInitFailed:
             return "SVG 转换器初始化失败"
         case .svgRenderFailed:

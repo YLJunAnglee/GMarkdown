@@ -166,6 +166,13 @@ public struct GMarkupAttachVisitor: MarkupVisitor {
         }
         // 使用默认处理
         let attributedString = defaultVisitForMutable(paragraph)
+        if GMarkFormulaMode.isBlockParagraph(paragraph), attributedString.length > 0 {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.paragraphSpacingBefore = 8
+            paragraphStyle.paragraphSpacing = 8
+            attributedString.addAttribute(.paragraphStyle, value: paragraphStyle,
+                                          range: NSRange(location: 0, length: attributedString.length))
+        }
         MarkdownStyleProcessor.appendBreakIfNeeded(for: paragraph, to: attributedString, style: style)
         return attributedString
     }

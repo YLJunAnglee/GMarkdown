@@ -24,7 +24,8 @@ public class GMarkParser {
 
     public func parseMarkdown(from markdown: String) -> Document {
         let processedMarkdown = preprocessor.process(markdown)
-        let document = Document(parsing: processedMarkdown)
+        let parsed = Document(parsing: processedMarkdown)
+        let document = GMarkFormulaBlocks.normalize(parsed) as! Document
         
         #if DEBUG
             print(document.debugDescription())

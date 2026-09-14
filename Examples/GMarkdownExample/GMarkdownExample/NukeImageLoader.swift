@@ -12,16 +12,54 @@ import NukeExtensions
 import GMarkdown
 
 class NukeImageLoader: ImageLoader {
-    
     @MainActor func loadImage(from source: String, into imageView: UIImageView) {
-        guard let url = URL(string: source) else { return }
-        
-        
+        loadImage(from: source, into: imageView, fallbackText: nil)
+    }
+
+    @MainActor func loadImage(from source: String, into imageView: UIImageView, fallbackText: String?) {
+        imageView.backgroundColor = .clear
+        imageView.viewWithTag(947_001)?.removeFromSuperview()
+        guard let url = URL(string: source) else {
+            showFallback(text: fallbackText, in: imageView)
+            return
+        }
+
         let options = ImageLoadingOptions(
-            placeholder: UIImage(ciImage: .gray),
+            placeholder: nil,
             transition: .fadeIn(duration: 0.33)
         )
-        NukeExtensions.loadImage(with: url, options: options, into: imageView) { result in}
+        NukeExtensions.loadImage(with: url, options: options, into: imageView) { [weak imageView] result in
+            guard case .failure = result else { return }
+            Task { @MainActor [weak imageView] in
+                guard let imageView else { return }
+                self.showFallback(text: fallbackText, in: imageView)
+            }
+        }
+    }
+
+    @MainActor private func showFallback(text: String?, in imageView: UIImageView) {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return }
+        imageView.image = nil
+        imageView.backgroundColor = .clear
+        imageView.viewWithTag(947_001)?.removeFromSuperview()
+
+        let label = UILabel()
+        label.tag = 947_001
+        label.text = text
+        label.font = .systemFont(ofSize: 13)
+        label.textColor = .secondaryLabel
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7
+        label.translatesAutoresizingMaskIntoConstraints = false
+        imageView.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: imageView.leadingAnchor, constant: 4),
+            label.trailingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: -4),
+            label.topAnchor.constraint(equalTo: imageView.topAnchor, constant: 4),
+            label.bottomAnchor.constraint(equalTo: imageView.bottomAnchor, constant: -4)
+        ])
     }
     
     func download(from source: String) async -> UIImage? {

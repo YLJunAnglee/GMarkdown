@@ -136,6 +136,7 @@ public protocol TableStyle {
     var padding: UIEdgeInsets { get set }
     var headerBackgroundColor: UIColor { get set }
     var headerTextColor: UIColor { get set }
+    var bodyBackgroundColor: UIColor { get set }
     var rowAlternateBackgroundColor: UIColor? { get set }
     var cellWidth: CGFloat { get set }
     var cellHeight: CGFloat { get set }
@@ -229,17 +230,23 @@ struct DefaultBlockquoteStyle: BlockquoteStyle {
 }
 
 public struct DefaultTableStyle: TableStyle {
-    public var borderColor: UIColor = .lightGray
+    /// Colors are kept here so clients can restyle a whole table without
+    /// changing table layout code.
+    public var borderColor: UIColor = UIColor(hex: "#D1D5DB")
     public var borderWidth: CGFloat = 1
     public var padding: UIEdgeInsets = .init(top: 12, left: 0, bottom: 12, right: 0)
     public var cellWidth: CGFloat = 60
     public var cellHeight: CGFloat = 44
-    public var headerBackgroundColor: UIColor = .lightGray
+    public var headerBackgroundColor: UIColor = UIColor(hex: "#F3F4F6")
     public var headerTextColor: UIColor = .black
-    public var rowAlternateBackgroundColor: UIColor? = .systemGray6
+    public var bodyBackgroundColor: UIColor = .white
+    public var rowAlternateBackgroundColor: UIColor? = .white
     public var cellPadding: UIEdgeInsets = .init(top: 6, left: 16, bottom: 6, right: 16)
     public var cellMaximumWidth: CGFloat = UIScreen.main.bounds.width - 12 - 32
-    public var maximumNumberOfLines: Int = 2
+    // Tables describe structured data. Truncating a cell after two lines silently
+    // drops source content such as `<br>`-separated properties and formula diagrams.
+    // MPITextKit uses zero as its unlimited-line sentinel.
+    public var maximumNumberOfLines: Int = 0
 
     public init() {}
 }

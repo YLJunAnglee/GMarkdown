@@ -106,6 +106,12 @@ class ViewController: UIViewController {
     
     private let examples: [ExampleItem] = [
         ExampleItem(
+            title: "项目书籍测试",
+            description: "选择导出书籍的章节，对比两种渲染方式",
+            icon: "doc.on.clipboard",
+            viewController: ProjectContentViewController.self
+        ),
+        ExampleItem(
             title: "Markdown Renderer",
             description: "Demonstrates basic Markdown rendering features including headings, lists, and code blocks",
             icon: "doc.text.fill",
@@ -180,4 +186,3 @@ extension ViewController: UICollectionViewDataSource, UICollectionViewDelegate {
         navigationController?.pushViewController(viewController, animated: true)
     }
 }
-

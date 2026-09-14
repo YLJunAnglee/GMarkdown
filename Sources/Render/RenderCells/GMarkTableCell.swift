@@ -18,9 +18,12 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
     var markChunk: GMarkChunk?
     public private(set) lazy var style: GMarkTableStyle = {
         let style = GMarkTableStyle.appearance
-        style.cornerRadius = 6
+        style.cornerRadius = 0
+        style.rowGap = tableStyle.borderWidth
         style.colGap = 1
-        style.gapColor = UIColor(hex: "#F2F2FF")
+        style.borderWidth = tableStyle.borderWidth
+        style.borderColor = tableStyle.borderColor
+        style.gapColor = tableStyle.borderColor
         return style
     }()
 
@@ -37,7 +40,7 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
         table.register(GMarkTableRichLabelCell.self, forCellReuseIdentifier: "GMarkTableRichLabelCell")
         table.dataSource = self
         table.style = style
-        table.layer.cornerRadius = 6
+        table.layer.cornerRadius = 0
         table.layer.masksToBounds = true
         contentView.addSubview(table)
     }
@@ -141,10 +144,13 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
 
         cell.contentInset = tableStyle.cellPadding
 
-        if indexPath.row % 2 == 0 {
-            cell.backgroundColor = .black.withAlphaComponent(0.06)
+        let hasHeader = !headerRenders().isEmpty
+        if hasHeader, indexPath.row == 0 {
+            cell.backgroundColor = tableStyle.headerBackgroundColor
+        } else if indexPath.row % 2 == 0, let alternateColor = tableStyle.rowAlternateBackgroundColor {
+            cell.backgroundColor = alternateColor
         } else {
-            cell.backgroundColor = UIColor(hex: "#F2F4F7")
+            cell.backgroundColor = tableStyle.bodyBackgroundColor
         }
 
         return cell

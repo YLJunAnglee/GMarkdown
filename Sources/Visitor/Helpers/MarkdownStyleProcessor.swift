@@ -149,7 +149,8 @@ public struct MarkdownStyleProcessor {
     
     public static func createImageAttributedString(source: String,
                                                   style: Style,
-                                                  imageLoader: ImageLoader?) -> NSAttributedString {
+                                                  imageLoader: ImageLoader?,
+                                                  fallbackText: String? = nil) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
         let imageView = UIImageView()
@@ -159,7 +160,7 @@ public struct MarkdownStyleProcessor {
         imageView.contentMode = style.imageStyle.contentMode
         print("Loading image from source: \(source)")
         if let imageLoader {
-            imageLoader.loadImage(from: source, into: imageView)
+            imageLoader.loadImage(from: source, into: imageView, fallbackText: fallbackText)
         } else {
             print("No image loader provided, loading image from URL directly.")
         }

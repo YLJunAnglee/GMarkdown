@@ -112,6 +112,7 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
     let trScrollView = UIScrollView()
     let blScrollView = UIScrollView()
     let brScrollView = UIScrollView()
+    private var hasFlashedHorizontalIndicator = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -141,9 +142,13 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
         blScrollView.showsHorizontalScrollIndicator = false
         addSubview(blScrollView)
 
-        brScrollView.bounces = false
+        // Wide tables intentionally keep their natural column widths. Make that horizontal
+        // viewport discoverable instead of making a five-column table look truncated.
+        brScrollView.bounces = true
+        brScrollView.alwaysBounceHorizontal = true
+        brScrollView.isDirectionalLockEnabled = true
         brScrollView.showsVerticalScrollIndicator = false
-        brScrollView.showsHorizontalScrollIndicator = false
+        brScrollView.showsHorizontalScrollIndicator = true
         brScrollView.delegate = self
         addSubview(brScrollView)
     }
@@ -199,6 +204,11 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
         size.width -= (style.borderWidth * 2 + style.colGap + blScrollView.frame.width)
         size.height -= (style.borderWidth * 2 + style.rowGap + trScrollView.frame.height)
         brScrollView.contentSize = size
+
+        if !hasFlashedHorizontalIndicator, brScrollView.contentSize.width > brScrollView.bounds.width {
+            brScrollView.flashScrollIndicators()
+            hasFlashedHorizontalIndicator = true
+        }
 
         trScrollView.contentSize = CGSize(width: size.width, height: 0)
         blScrollView.contentSize = CGSize(width: 0, height: size.height)
@@ -510,6 +520,11 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
             return
         }
 
+        // A reusable table must not inherit a previous table's horizontal position.
+        brScrollView.contentOffset = .zero
+        trScrollView.contentOffset = .zero
+        blScrollView.contentOffset = .zero
+        hasFlashedHorizontalIndicator = false
         rowLengths.removeAll()
         colLengths.removeAll()
         spans.removeAll()

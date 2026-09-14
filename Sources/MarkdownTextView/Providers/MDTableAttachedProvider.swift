@@ -22,16 +22,19 @@ class MDTableAttachedProvider: MarkdownAttachedViewProvider {
         table.register(GMarkTableRichLabelCell.self, forCellReuseIdentifier: "GMarkTableRichLabelCell")
         table.dataSource = self
         table.style = tableStyle
-        table.layer.cornerRadius = 6
+        table.layer.cornerRadius = 0
         table.layer.masksToBounds = true
         return table
     }()
     
     public private(set) lazy var tableStyle: GMarkTableStyle = {
         let style = GMarkTableStyle.appearance
-        style.cornerRadius = 6
+        style.cornerRadius = 0
+        style.rowGap = defaultStyle.borderWidth
         style.colGap = 1
-        style.gapColor = UIColor(hex: "#F2F2FF")
+        style.borderWidth = defaultStyle.borderWidth
+        style.borderColor = defaultStyle.borderColor
+        style.gapColor = defaultStyle.borderColor
         return style
     }()
 
@@ -142,15 +145,17 @@ extension MDTableAttachedProvider: GMarkTableViewDataSource {
 
         cell.contentInset = defaultStyle.cellPadding
 
-        if indexPath.row % 2 == 0 {
-            cell.backgroundColor = .black.withAlphaComponent(0.06)
+        let hasHeader = !headerRenders().isEmpty
+        if hasHeader, indexPath.row == 0 {
+            cell.backgroundColor = defaultStyle.headerBackgroundColor
+        } else if indexPath.row % 2 == 0, let alternateColor = defaultStyle.rowAlternateBackgroundColor {
+            cell.backgroundColor = alternateColor
         } else {
-            cell.backgroundColor = UIColor(hex: "#F2F4F7")
+            cell.backgroundColor = defaultStyle.bodyBackgroundColor
         }
 
         return cell
     }
 }
-
 
 

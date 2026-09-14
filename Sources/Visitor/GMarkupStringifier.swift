@@ -11,6 +11,8 @@ import Markdown
 public struct GMarkupStringifier: MarkupVisitor {
     public typealias Result = String
     
+    private var isFormula = false
+
     public init() {}
     
     public mutating func defaultVisit(_ markup: Markup) -> String {
@@ -26,6 +28,7 @@ public struct GMarkupStringifier: MarkupVisitor {
     }
     
     public mutating func visitText(_ text: Text) -> String {
+        if isFormula { return text.string }
         // 只替换结尾的单个反斜杠
         if text.string.hasSuffix(" \\") {
             let withoutSlash = text.string.dropLast(2) // 移除最后的 " \"
@@ -34,6 +37,12 @@ public struct GMarkupStringifier: MarkupVisitor {
         return text.string
     }
     
+    public mutating func visitInlineHTML(_ inlineHTML: InlineHTML) -> String {
+        if inlineHTML.rawHTML == "<LaTex>" { isFormula = true }
+        if inlineHTML.rawHTML == "</LaTex>" { isFormula = false }
+        return ""
+    }
+
     public mutating func visitParagraph(_ paragraph: Paragraph) -> String {
         return defaultVisit(paragraph) + "\n\n"
     }

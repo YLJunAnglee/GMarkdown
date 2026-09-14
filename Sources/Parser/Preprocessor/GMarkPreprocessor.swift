@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Markdown
 
 /// Protocol for markdown preprocessors
 public protocol GMarkPreprocessorProtocol {
@@ -68,10 +69,16 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
         
         let nsString = result as NSString
         let range = NSRange(location: 0, length: nsString.length)
-        let matches = regex.matches(in: result, options: [], range: range).reversed()
+        let codeRanges = protectedCodeRanges(in: markdown)
+        let searchSource = NSMutableString(string: markdown)
+        for codeRange in codeRanges.reversed() {
+            searchSource.replaceCharacters(in: codeRange, with: String(repeating: " ", count: codeRange.length))
+        }
+        let matches = regex.matches(in: searchSource as String, options: [], range: range).reversed()
         
         for match in matches {
             let matchRange = match.range
+            guard !codeRanges.contains(where: { NSIntersectionRange($0, matchRange).length > 0 }) else { continue }
             let matchedString = nsString.substring(with: matchRange)
             
             // Skip if content is too large (potential security issue)
@@ -85,16 +92,38 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
     }
     
     private func wrapLaTeX(_ content: String) -> String {
-        let lines = content.components(separatedBy: .newlines)
-        
-        if lines.count > 1 || content.count > 30 {
-            // Multi-line or long expressions get newlines for better formatting
-            return "\n <LaTex>\(content)</LaTex> \n"
-        } else {
-            // Inline expressions
-            return "<LaTex>\(content)</LaTex>"
-        }
+        // CommonMark resolves references into literal Text without reinterpreting their
+        // decoded punctuation. This also keeps pipes/newlines out of table syntax.
+        let literal = content.unicodeScalars.map { "&#\($0.value);" }.joined()
+        return "<LaTex>\(literal)</LaTex>"
     }
+
+    private func protectedCodeRanges(in source: String) -> [NSRange] {
+        let bytes = Array(source.utf8)
+        var starts = [0]
+        for index in bytes.indices where bytes[index] == 10 { starts.append(index + 1) }
+        func offset(_ location: SourceLocation) -> Int? {
+            guard location.line > 0, location.line <= starts.count, location.column > 0 else { return nil }
+            let value = starts[location.line - 1] + location.column - 1
+            return value <= bytes.count ? value : nil
+        }
+        var ranges: [NSRange] = []
+        func collect(_ node: Markup) {
+            if node is CodeBlock || node is InlineCode {
+                if let range = node.range, let start = offset(range.lowerBound),
+                   let end = offset(range.upperBound), end >= start {
+                    let prefix = String(decoding: bytes[..<start], as: UTF8.self)
+                    let content = String(decoding: bytes[start..<end], as: UTF8.self)
+                    ranges.append(NSRange(location: prefix.utf16.count, length: content.utf16.count))
+                }
+                return
+            }
+            for child in node.children { collect(child) }
+        }
+        collect(Document(parsing: source))
+        return ranges
+    }
+
 }
 
 /// Preprocessor for code blocks formatting

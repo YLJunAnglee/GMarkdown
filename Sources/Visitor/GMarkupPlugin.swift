@@ -74,8 +74,9 @@ public class DefaultTablePlugin: GMarkupPlugin {
         var style = visitor.visitorStyle
         style.useMPTextKit = true
         style.imageStyle.size = CGSize(width: 60, height: 60)
-        var visitor = GMarkupTableVisitor(style: style)
-        let table = visitor.visit(table)
+        var tableVisitor = GMarkupTableVisitor(style: style)
+        tableVisitor.imageLoader = visitor.imageLoader
+        let table = tableVisitor.visit(table)
         let provider = MDTableAttachedProvider(markTable: table, style: style)
         let attachment = MarkdownAttachment(viewProvider: provider)
         result.append(NSAttributedString(attachment: attachment))
@@ -143,7 +144,7 @@ public class DefaultInlineHTMLPlugin: GMarkupPlugin {
         if beginLaTex, let text = markup as? Text {
             let renderResult = GMarkLaTexRender.renderLatexSmart(from: text.plainText, style: style)
             if renderResult.success, let image = renderResult.image {
-                let provider = MDLaTexAttachedProvider(laTexImage: image, style: style)
+                let provider = MDLaTexAttachedProvider(laTexImage: image, style: style, mode: GMarkFormulaMode.detect(text.plainText))
                 let attachment = MarkdownAttachment(viewProvider: provider)
                 return NSAttributedString(attachment: attachment)
             } else {

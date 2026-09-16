@@ -102,10 +102,43 @@ public final class GMarkTableLayout {
     /// - Returns: A configured `MPITextRenderer` instance.
     private func createTextRenderer(from attributedText: NSAttributedString, maxWidth: CGFloat) -> MPITextRenderer {
         let builder = MPITextRenderAttributesBuilder()
-        builder.attributedText = attributedText
+        builder.attributedText = attributedTextWithEmojiFallback(attributedText)
         builder.maximumNumberOfLines = UInt(style.tableStyle.maximumNumberOfLines)
         let renderAttributes = MPITextRenderAttributes(builder: builder)
         let constrainedSize = CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude)
         return MPITextRenderer(renderAttributes: renderAttributes, constrainedSize: constrainedSize)
+    }
+
+    /// MPITextKit cannot render these color status emoji. Use text glyphs that
+    /// render reliably without changing the Markdown source.
+    private func attributedTextWithEmojiFallback(_ attributedText: NSAttributedString) -> NSAttributedString {
+        let text = attributedText.string
+        guard text.contains("❌") || text.contains("✅") else { return attributedText }
+
+        let result = NSMutableAttributedString(attributedString: attributedText)
+        text.enumerateSubstrings(
+            in: text.startIndex...,
+            options: [.byComposedCharacterSequences, .reverse]
+        ) { substring, range, _, _ in
+            guard let substring else { return }
+            let fallback: String
+            switch substring {
+            case "❌": fallback = "×"
+            case "✅": fallback = "✓"
+            default: return
+            }
+
+            let nsRange = NSRange(range, in: text)
+            let attributes = result.attributes(at: nsRange.location, effectiveRange: nil)
+            result.replaceCharacters(in: nsRange, with: fallback)
+            let fallbackRange = NSRange(location: nsRange.location, length: fallback.utf16.count)
+            result.addAttributes(attributes, range: fallbackRange)
+            result.addAttribute(
+                NSAttributedString.Key("MPITextBackedString"),
+                value: MPITextBackedString(string: substring),
+                range: fallbackRange
+            )
+        }
+        return result
     }
 }

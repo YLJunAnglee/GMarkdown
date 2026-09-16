@@ -101,7 +101,11 @@ public class DefaultImagePlugin: GMarkupPlugin {
         guard image.source != nil else {
             return nil
         }
-        let imageProvider = MDAsyncImageAttachedProvider(markup: image, style: visitor.visitorStyle)
+        let imageProvider = MDAsyncImageAttachedProvider(
+            markup: image,
+            style: visitor.visitorStyle,
+            imageloader: visitor.imageLoader
+        )
         let attachment = MarkdownAttachment(viewProvider: imageProvider)
         return NSAttributedString(attachment: attachment)
     }

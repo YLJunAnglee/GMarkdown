@@ -46,7 +46,20 @@ class MDTableAttachedProvider: MarkdownAttachedViewProvider {
         self.markTable = markTable
         self.style = style
         tableLayout = GMarkTableLayout(markTable: markTable, style: style)
-        itemSize = CGSize(width: style.maxContainerWidth, height: tableLayout?.tableHeight ?? 0)
+        itemSize = CGSize(width: style.maxContainerWidth, height: attachmentTableHeight())
+    }
+
+    /// A text attachment owns the table view directly, unlike the block renderer
+    /// which applies `TableStyle.padding` around it. Match the table view's grid
+    /// height so its final row reaches the attachment's bottom border.
+    private func attachmentTableHeight() -> CGFloat {
+        guard let tableLayout else { return 0 }
+
+        let rowCount = tableRenders().count
+        let padding = defaultStyle.padding.top + defaultStyle.padding.bottom
+        let rowGaps = CGFloat(max(rowCount - 1, 0)) * tableStyle.rowGap
+        let borders = tableStyle.borderWidth * 2
+        return tableLayout.tableHeight - padding + rowGaps + borders
     }
     
     func instantiateView(for attachment: MarkdownAttachment, in behavior: MarkdownAttachingBehavior) -> UIView {
@@ -157,5 +170,4 @@ extension MDTableAttachedProvider: GMarkTableViewDataSource {
         return cell
     }
 }
-
 

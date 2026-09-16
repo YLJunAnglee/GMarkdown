@@ -451,11 +451,18 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
             borderView.backgroundColor = borderColor
             addSubview(borderView)
             sendSubviewToBack(borderView)
-            let path = UIBezierPath(rect: bounds)
-            path.append(UIBezierPath(rect: bounds.insetBy(dx: style.borderWidth, dy: style.borderWidth)))
+            // The table view may be wider than a narrow table's natural grid. Draw the
+            // border around the grid rather than the attachment/container, so a phantom
+            // empty column is not shown to the right of the final real column.
+            let gridSize = CGSize(
+                width: min(bounds.width, intrinsicContentSize.width),
+                height: min(bounds.height, intrinsicContentSize.height)
+            )
+            borderView.frame = CGRect(origin: .zero, size: gridSize)
+            let path = UIBezierPath(rect: borderView.bounds)
+            path.append(UIBezierPath(rect: borderView.bounds.insetBy(dx: style.borderWidth, dy: style.borderWidth)))
             mask.path = path.cgPath
             mask.fillRule = .evenOdd
-            borderView.frame = bounds
             self.borderView = borderView
         } else {
             borderView?.removeFromSuperview()

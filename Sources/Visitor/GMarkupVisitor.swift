@@ -56,7 +56,7 @@ public struct GMarkupVisitor: MarkupVisitor {
         guard style.useMPTextKit, let source = image.source else {
             return NSMutableAttributedString(string: "")
         }
-        return processImageElement(source: source)
+        return processImageElement(source: source, fallbackText: image.plainText)
     }
     
     public mutating func visitEmphasis(_ emphasis: Emphasis) -> NSAttributedString {
@@ -503,5 +503,4 @@ private struct Renderer {
         }
     }
 }
-
 

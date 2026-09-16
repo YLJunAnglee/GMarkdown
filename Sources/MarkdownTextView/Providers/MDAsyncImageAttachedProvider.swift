@@ -17,17 +17,19 @@ class MDAsyncImageAttachedProvider: MarkdownAttachedViewProvider {
     var markup: Image?
     var style:Style?
     var imageloader: ImageLoader?
+    let fallbackText: String?
     
     init(markup: Image, style:Style, imageloader: ImageLoader? = nil) {
         self.url = markup.source ?? ""
         self.markup = markup
         self.style = style
         self.imageloader = imageloader
+        self.fallbackText = markup.plainText
     }
     
     func instantiateView(for attachment: MarkdownAttachment, in behavior: MarkdownAttachingBehavior) -> UIView {
         if let imageloader {
-            imageloader.loadImage(from: url, into: self.imageView)
+            imageloader.loadImage(from: url, into: self.imageView, fallbackText: fallbackText)
         } else {
             loadImageFromUrl()
         }

@@ -32,8 +32,7 @@ open class GMarkdownCodeView: UIView {
             container.layer.cornerRadius = markChunk.style.codeBlockStyle.cornerRadius
             container.backgroundColor = markChunk.style.codeBlockStyle.backgroundColor
 
-            let frame = adjustedFrame(frame: bounds, withInsets: markChunk.style.codeBlockStyle.padding)
-            container.frame = frame
+            setNeedsLayout()
 
             playButton.isHidden = !(["mermaid", "html"].contains(markChunk.language.lowercased()))
         }
@@ -51,8 +50,39 @@ open class GMarkdownCodeView: UIView {
 
     override public func layoutSubviews() {
         super.layoutSubviews()
-        let frame = adjustedFrame(frame: bounds, withInsets: markChunk?.style.codeBlockStyle.padding ?? UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0))
-        container.frame = frame
+
+        let padding = markChunk?.style.codeBlockStyle.padding ?? UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
+        container.frame = CGRect(
+            x: padding.left,
+            y: padding.top,
+            width: max(0, bounds.width - padding.left - padding.right),
+            height: max(0, bounds.height - padding.top - padding.bottom)
+        )
+        topView.frame = CGRect(x: 0, y: 0, width: container.bounds.width, height: 36)
+
+        let copyButtonWidth: CGFloat = 60
+        codeCopyButton.frame = CGRect(
+            x: max(0, topView.bounds.width - copyButtonWidth - 8),
+            y: 2,
+            width: copyButtonWidth,
+            height: 32
+        )
+
+        let languageSize = languageLabel.intrinsicContentSize
+        languageLabel.frame = CGRect(
+            x: 8,
+            y: (topView.bounds.height - languageSize.height) / 2,
+            width: languageSize.width,
+            height: languageSize.height
+        )
+        playButton.frame = CGRect(x: languageLabel.frame.maxX + 2, y: 6, width: 24, height: 24)
+
+        scrollView.frame = CGRect(
+            x: 8,
+            y: 40,
+            width: max(0, container.bounds.width - 16),
+            height: max(0, container.bounds.height - 48)
+        )
     }
 
     private func setupViews() {
@@ -99,62 +129,8 @@ open class GMarkdownCodeView: UIView {
         playButton.isHidden = true
         topView.addSubview(playButton)
 
-        setupConstraints()
         setDefaultCopyImage()
         setDefaultPlayImage()
-    }
-
-    private func setupConstraints() {
-        let frame = adjustedFrame(frame: bounds, withInsets: UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0))
-        container.frame = frame
-
-        topView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            topView.leftAnchor.constraint(equalTo: container.leftAnchor),
-            topView.topAnchor.constraint(equalTo: container.topAnchor),
-            topView.rightAnchor.constraint(equalTo: container.rightAnchor),
-            topView.heightAnchor.constraint(equalToConstant: 36),
-        ])
-        languageLabel.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            languageLabel.centerYAnchor.constraint(equalTo: topView.centerYAnchor),
-            languageLabel.leftAnchor.constraint(equalTo: topView.leftAnchor, constant: 8),
-        ])
-        codeCopyButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            codeCopyButton.heightAnchor.constraint(equalToConstant: 32),
-            codeCopyButton.centerYAnchor.constraint(equalTo: topView.centerYAnchor),
-            codeCopyButton.rightAnchor.constraint(equalTo: topView.rightAnchor, constant: -8),
-            codeCopyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 60)
-        ])
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: container.topAnchor, constant: 40),
-            scrollView.leftAnchor.constraint(equalTo: container.leftAnchor, constant: 8),
-            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
-            scrollView.rightAnchor.constraint(equalTo: container.rightAnchor, constant: -8),
-        ])
-        playButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            playButton.widthAnchor.constraint(equalToConstant: 24),
-            playButton.heightAnchor.constraint(equalToConstant: 24),
-            playButton.centerYAnchor.constraint(equalTo: topView.centerYAnchor),
-            playButton.leftAnchor.constraint(equalTo: languageLabel.rightAnchor, constant: 2),
-        ])
-    }
-
-    /// 计算新的frame，原始frame减去UIEdgeInsets的值
-    /// - Parameters:
-    ///   - frame: 原始的CGRect
-    ///   - insets: UIEdgeInsets，各方向的内边距
-    /// - Returns: 调整后的CGRect
-    func adjustedFrame(frame: CGRect, withInsets insets: UIEdgeInsets) -> CGRect {
-        let newX = frame.origin.x + insets.left
-        let newY = frame.origin.y + insets.top
-        let newWidth = frame.width - insets.left - insets.right
-        let newHeight = frame.height - insets.top - insets.bottom
-
-        return CGRect(x: newX, y: newY, width: newWidth, height: newHeight)
     }
 
     private func imageFromBase64(base64String: String) -> UIImage? {

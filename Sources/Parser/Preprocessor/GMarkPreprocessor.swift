@@ -58,7 +58,10 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
     }
     
     private func processLaTeX(_ markdown: String) -> String {
-        var result = markdown
+        // Some exports emit a display `aligned` environment as `$...$$`.
+        // Repair only that unambiguous one-character delimiter mismatch before
+        // tokenization; never add delimiters to arbitrary prose or TeX text.
+        var result = recoverMalformedAlignedDisplayMath(in: markdown)
         
         // LaTeX pattern: $$...$$, $...$, \[...\], \(...\)
         let pattern = "\\$\\$([\\s\\S]*?)\\$\\$|\\$([\\s\\S]*?)\\$|\\\\\\[([\\s\\S]*?)\\\\\\]|\\\\\\(([\\s\\S]*?)\\\\\\)"
@@ -69,8 +72,8 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
         
         let nsString = result as NSString
         let range = NSRange(location: 0, length: nsString.length)
-        let codeRanges = protectedCodeRanges(in: markdown)
-        let searchSource = NSMutableString(string: markdown)
+        let codeRanges = protectedCodeRanges(in: result)
+        let searchSource = NSMutableString(string: result)
         for codeRange in codeRanges.reversed() {
             searchSource.replaceCharacters(in: codeRange, with: String(repeating: " ", count: codeRange.length))
         }
@@ -88,6 +91,26 @@ public class LaTeXPreprocessor: GMarkPreprocessorProtocol {
             result = (result as NSString).replacingCharacters(in: matchRange, with: wrappedString)
         }
         
+        return result
+    }
+
+    private func recoverMalformedAlignedDisplayMath(in source: String) -> String {
+        // A single opening dollar followed by `\\begin{aligned}` and a double
+        // closing dollar cannot be a valid paired delimiter. Treat it as the
+        // display form the exporter evidently intended, while leaving the
+        // original source data untouched.
+        // A following word character can instead mean two adjacent `$...$`
+        // formulas. Only recover at a Markdown/table boundary.
+        let pattern = "(?<!\\$)\\$(\\\\begin\\{aligned\\}[\\s\\S]*?\\\\end\\{aligned\\})\\$\\$(?=\\s|\\||$)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return source }
+        let codeRanges = protectedCodeRanges(in: source)
+        let range = NSRange(location: 0, length: (source as NSString).length)
+        var result = source
+        for match in regex.matches(in: source, range: range).reversed() {
+            guard !codeRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { continue }
+            let body = (source as NSString).substring(with: match.range(at: 1))
+            result = (result as NSString).replacingCharacters(in: match.range, with: "$$\(body)$$")
+        }
         return result
     }
     

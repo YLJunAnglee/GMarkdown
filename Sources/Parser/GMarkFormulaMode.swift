@@ -22,6 +22,26 @@ public enum GMarkFormulaMode: String {
               (node.child(at: 2) as? InlineHTML)?.rawHTML == "</LaTex>" else { return false }
         return detect(payload.string) == .block
     }
+
+    /// `$$...$$` is display math only when it occupies an entire paragraph.
+    /// In headings and mixed inline content, exports sometimes use the same
+    /// delimiter for a small inline expression; treating that attachment as a
+    /// block splits the surrounding text in TextView.
+    static func attachmentMode(for payload: Text) -> GMarkFormulaMode {
+        guard detect(payload.string) == .block else { return .inline }
+
+        var current: Markup? = payload
+        while let parent = current?.parent {
+            // Preserve the established display-math behavior for table cells,
+            // whose local formula line handling is intentional.
+            if parent is Table.Cell { return .block }
+            if let paragraph = parent as? Paragraph {
+                return isBlockParagraph(paragraph) ? .block : .inline
+            }
+            current = parent
+        }
+        return .inline
+    }
 }
 
 /// Split only paragraph children, preserving list/quote containers and table cells.

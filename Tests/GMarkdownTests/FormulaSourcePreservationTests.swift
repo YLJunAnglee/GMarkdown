@@ -51,6 +51,23 @@ final class FormulaSourcePreservationTests: XCTestCase {
         }
     }
 
+    func testMalformedAlignedDisplayDelimiterDoesNotConsumeFollowingTableCell() {
+        let malformed = #"| 类型 | 公式 |
+| --- | --- |
+| 人工 | $\begin{aligned}a&=b\\c&=d\end{aligned}$$ |
+| 后续 | $\begin{aligned}e&=f\end{aligned}$ |"#
+        let expected = #"$$\begin{aligned}a&=b\\c&=d\end{aligned}$$"#
+        XCTAssertEqual(formulas(malformed), [expected, #"$\begin{aligned}e&=f\end{aligned}$"#])
+        let document = GMarkParser().parseMarkdown(from: malformed)
+        guard let table = document.child(at: 0) as? Table else { return XCTFail("Table must survive recovery") }
+        XCTAssertEqual(table.body.childCount, 2)
+    }
+
+    func testMalformedAlignedRecoveryDoesNotConsumeAnAdjacentFormula() {
+        let adjacent = #"$\begin{aligned}a&=b\end{aligned}$$x^2$"#
+        XCTAssertEqual(formulas(adjacent), [#"$\begin{aligned}a&=b\end{aligned}$"#, #"$x^2$"#])
+    }
+
     func testCodeRegionsAreNotWrappedAndDoNotConsumeFollowingFormula() {
         let real = #"$P(\{e_i\})$"#
         let source = "`$ unmatched`\n\n```latex\n$$x_y$$\n```\n\n    $$z_w$$\n\n正文 " + real

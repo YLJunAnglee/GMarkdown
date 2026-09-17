@@ -148,7 +148,8 @@ public class DefaultInlineHTMLPlugin: GMarkupPlugin {
         if beginLaTex, let text = markup as? Text {
             let renderResult = GMarkLaTexRender.renderLatexSmart(from: text.plainText, style: style)
             if renderResult.success, let image = renderResult.image {
-                let provider = MDLaTexAttachedProvider(laTexImage: image, style: style, mode: GMarkFormulaMode.detect(text.plainText))
+                let provider = MDLaTexAttachedProvider(laTexImage: image, style: style,
+                                                       mode: GMarkFormulaMode.attachmentMode(for: text))
                 let attachment = MarkdownAttachment(viewProvider: provider)
                 return NSAttributedString(attachment: attachment)
             } else {

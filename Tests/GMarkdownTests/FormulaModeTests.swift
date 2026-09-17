@@ -23,6 +23,19 @@ final class FormulaModeTests: XCTestCase {
         }
     }
 
+    func testTextViewKeepsDisplayDelimitersInlineOutsideStandaloneParagraphs() {
+        let document = GMarkParser().parseMarkdown(from: "# 标题 $$x^2$$\n\n**强调 $$y^2$$**\n\n$$z^2$$")
+        var modes = [GMarkFormulaMode]()
+        func walk(_ node: Markup) {
+            if let text = node as? Text, text.string.hasPrefix("$$") {
+                modes.append(GMarkFormulaMode.attachmentMode(for: text))
+            }
+            for child in node.children { walk(child) }
+        }
+        walk(document)
+        XCTAssertEqual(modes, [.inline, .inline, .block])
+    }
+
     func testDisplaySplitsTextAndAdjacentBlocksWithoutLosingPayload() {
         let source = #"前$$P(\{e_i\})$$$$y^2$$后"#
         let nodes = GMarkParser().parseMarkdownToMarkups(markdown: source)

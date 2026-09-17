@@ -15,7 +15,6 @@ open class GMarkdownCodeView: UIView {
     public var scrollView: UIScrollView!
     public var codeCopyButton: UIButton!
     public var codeLabel: MPILabel!
-    public var playButton: UIButton!
 
     @objc public var onCopy: ((String) -> Void)?
 
@@ -34,7 +33,6 @@ open class GMarkdownCodeView: UIView {
 
             setNeedsLayout()
 
-            playButton.isHidden = !(["mermaid", "html"].contains(markChunk.language.lowercased()))
         }
     }
 
@@ -75,7 +73,6 @@ open class GMarkdownCodeView: UIView {
             width: languageSize.width,
             height: languageSize.height
         )
-        playButton.frame = CGRect(x: languageLabel.frame.maxX + 2, y: 6, width: 24, height: 24)
 
         scrollView.frame = CGRect(
             x: 8,
@@ -124,13 +121,7 @@ open class GMarkdownCodeView: UIView {
         codeLabel.numberOfLines = 0
         scrollView.addSubview(codeLabel)
 
-        playButton = UIButton(type: .custom)
-        playButton.addTarget(self, action: #selector(playButtonAction), for: .touchUpInside)
-        playButton.isHidden = true
-        topView.addSubview(playButton)
-
         setDefaultCopyImage()
-        setDefaultPlayImage()
     }
 
     private func imageFromBase64(base64String: String) -> UIImage? {
@@ -146,24 +137,6 @@ open class GMarkdownCodeView: UIView {
         if let image = imageFromBase64(base64String: base64String) {
             let resizedImage = image.resized(to: CGSize(width: 12, height: 12))
             codeCopyButton.setImage(resizedImage, for: .normal)
-        }
-    }
-
-    private func setDefaultPlayImage() {
-        let base64String = "iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAW5JREFUSEu1VttxxCAMDBSD3UVylSWu7JwubIpBiTTIs2DxyNyED/tuAO3qtbJ766x1XT94m4g+81v+O+d2Ivrm3zHGr54NZ22yYTZKRGJwYm0toBsAG08pPdGoMvbe7yklBBXPYN2ACoAQAruLl5rM1OjozgWAB5mxc247jmOfCI8cWZblqSH13j/0LgKQJvA8z8esYTxngQgAskf0V0A4CkxUAYT9bwWaMQ8h8P4wH2wAi4TJOmQfYzTLNgMIAa6kUW40VDVAkyEAaNS63iiAFAsk5i8AXSANkwCg+61uNDyo81+QwzxcAL3q6QFYPVMA/HuIMCGtBqs90Bpv9QlU5ubQnVGZzkoIRqUAaDUTX5jVprqvpLFQQ1pezMpGnVMBKLKeNWTWIJ6zVOGShmrQTOlOyziG+uWBY4zXgtxN3IwJJSLHDxY6ZV1/COT9a9DoOVM96xkxykevfJsA1czlT5V3HYlsME8/8awn3z9KOVH6hlcOVgAAAABJRU5ErkJggg=="
-        if let image = imageFromBase64(base64String: base64String) {
-            let resizedImage = image.resized(to: CGSize(width: 12, height: 12))
-            playButton.setImage(resizedImage, for: .normal)
-        }
-    }
-
-    @objc private func playButtonAction() {
-        guard let markChunk = markChunk else { return }
-        let language = markChunk.language.lowercased()
-        if language == "mermaid" {
-            GMarkMermaidBrowser.modal(with: markChunk.codeSource)
-        } else if language == "html" {
-            GMarkHtmlBrowser.modal(with: markChunk.codeSource)
         }
     }
 

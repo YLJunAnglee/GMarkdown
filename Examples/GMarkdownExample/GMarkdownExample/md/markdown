@@ -322,3 +322,24 @@ flowchart TD;
 ```
 
 This comprehensive example showcases various Markdown features and formatting options. Note that some features might require specific Markdown processors or extensions to work properly.
+
+### 17. Third-party HTML safe degradation
+
+<div class="ignored" onclick="alert('must not run')">
+  <p>允许的 <strong>粗体</strong>、<em>斜体</em> 与 <code>代码</code>仍应可读。</p>
+  <ul><li>第一项</li><li>第二项</li></ul>
+  <p><a href="https://example.invalid">链接仅保留这段文字</a></p>
+  <img src="https://example.invalid/pixel.png" alt="HTML 图片替代文字">
+  <script>document.body.innerHTML = '脚本内容不得显示或执行';</script>
+  <iframe src="https://example.invalid">框架内容不得显示</iframe>
+  <p>危险内容之后的普通文字仍应显示。</p>
+</div>
+
+### 18. Malformed table safety
+
+| 列 A | 列 B | 列 C |
+| --- | --- | --- |
+| 只有一列 |
+|  |  |
+| 三列 | 正常 | 内容 |
+| 多余 | 列 | 内容 | 超出 |

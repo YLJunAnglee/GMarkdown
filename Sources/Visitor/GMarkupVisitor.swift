@@ -19,6 +19,7 @@ public struct GMarkupVisitor: MarkupVisitor {
     public var ignoreLatex: Bool = false
     public var beginLatex: Bool = false
     public var beginSupTag: Bool = false
+    private var htmlInlineState = GMarkHTMLSanitizer.InlineState()
     
     private let style: Style
     public var referLoader: ReferLoader?
@@ -41,6 +42,9 @@ public struct GMarkupVisitor: MarkupVisitor {
     }
     
     public mutating func visitText(_ text: Text) -> NSAttributedString {
+        if htmlInlineState.isIgnoringContent {
+            return NSAttributedString(string: "")
+        }
         if beginLatex {
             return processLatexText(text)
         }
@@ -49,7 +53,7 @@ public struct GMarkupVisitor: MarkupVisitor {
             return processSupTagText(text)
         }
         
-        return createDefaultAttributedString(from: text.plainText)
+        return GMarkHTMLSanitizer.attributedText(from: text.plainText, style: style, state: htmlInlineState)
     }
     
     public mutating func visitImage(_ image: Image) -> NSAttributedString {
@@ -348,11 +352,6 @@ extension GMarkupVisitor {
 extension GMarkupVisitor {
     
     private mutating func processInlineHTML(_ inlineHTML: InlineHTML) -> Result {
-        if style.useMPTextKit,
-           let image = inlineImage(from: inlineHTML.rawHTML) {
-            return processImageElement(source: image.source, fallbackText: image.alt)
-        }
-
         if !ignoreLatex {
             switch inlineHTML.plainText {
             case "<LaTex>":
@@ -363,52 +362,34 @@ extension GMarkupVisitor {
                 break
             }
         }
-        
-        switch inlineHTML.plainText {
-        case "<br>":
-            return .singleNewline(withStyle: style)
-        case "<sup>":
-            beginSupTag = true
-            return defaultVisit(inlineHTML)
-        case "</sup>":
-            beginSupTag = false
-            return defaultVisit(inlineHTML)
-        default:
-            return defaultVisit(inlineHTML)
+        // Keep the existing ReferLoader convention: when supplied by the host,
+        // <sup>content</sup> represents a reference token rather than ordinary
+        // HTML superscript text. Without a ReferLoader it follows the display-only
+        // HTML policy below.
+        if referLoader != nil {
+            switch inlineHTML.plainText.lowercased() {
+            case "<sup>":
+                beginSupTag = true
+                return NSAttributedString(string: "")
+            case "</sup>":
+                beginSupTag = false
+                return NSAttributedString(string: "")
+            default:
+                break
+            }
         }
-    }
-
-    /// swift-markdown represents a raw HTML image inside a table as InlineHTML,
-    /// rather than Markdown.Image. Treat the supported `<img src="…">` form like
-    /// a Markdown image so it reaches the configured image loader.
-    private func inlineImage(from rawHTML: String) -> (source: String, alt: String?)? {
-        guard rawHTML.range(of: #"<img\b"#, options: .regularExpression) != nil,
-              let source = inlineHTMLAttribute(named: "src", in: rawHTML) else {
-            return nil
+        if let result = GMarkHTMLSanitizer.applyInlineToken(inlineHTML.rawHTML,
+                                                            to: &htmlInlineState,
+                                                            style: style) {
+            return result
         }
-        return (source, inlineHTMLAttribute(named: "alt", in: rawHTML))
-    }
-
-    private func inlineHTMLAttribute(named name: String, in rawHTML: String) -> String? {
-        guard let match = rawHTML.range(
-            of: #"\b\#(name)\s*=\s*([\"'])(.*?)\1"#,
-            options: .regularExpression
-        ) else {
-            return nil
-        }
-        let attribute = String(rawHTML[match])
-        guard let value = attribute.range(
-            of: #"([\"'])(.*?)\1"#,
-            options: .regularExpression
-        ) else {
-            return nil
-        }
-        let quotedValue = String(attribute[value])
-        return String(quotedValue.dropFirst().dropLast())
+        return NSAttributedString(string: "")
     }
     
     private mutating func processHTMLBlock(_ html: HTMLBlock) -> Result {
-        return createDefaultAttributedString(from: html.rawHTML)
+        let result = GMarkHTMLSanitizer.attributedString(from: html.rawHTML, style: style)
+        MarkdownStyleProcessor.appendSplitBreakIfNeeded(for: html, to: result, style: style)
+        return result
     }
 }
 
@@ -503,4 +484,3 @@ private struct Renderer {
         }
     }
 }
-

@@ -243,12 +243,10 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
         numberOfLockingRows = dataSource.numberOfLockingRows(in: self)
         numberOfLockingCols = dataSource.numberOfLockingCols(in: self)
 
-        if numberOfLockingRows > numberOfRows {
-            fatalError("error: numberOfLockingRows > numberOfRows")
-        }
-        if numberOfLockingCols > numberOfCols {
-            fatalError("error: numberOfLockingCols > numberOfCols")
-        }
+        // Malformed or hostile data must not terminate the host application.
+        // Clamp frozen sections to the actual grid dimensions instead.
+        numberOfLockingRows = min(max(0, numberOfLockingRows), numberOfRows)
+        numberOfLockingCols = min(max(0, numberOfLockingCols), numberOfCols)
 
         var tmpRowLengths = [CGFloat]()
         var tmpColLengths = [CGFloat]()
@@ -380,7 +378,8 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
                 superview = brScrollView
             }
             guard let cell = dataSource?.table(self, cellForIndexPath: indexPath) else {
-                fatalError()
+                // A missing cell is an empty cell, not a programmer-fatal state.
+                continue
             }
             if cell.isKind(of: type(of: GMarkTableViewCell.placeholder)) {
                 continue
@@ -404,12 +403,10 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
 
     private func layouttable() {
         for (indexPath, cell) in visibleCells {
-            guard (indexPath.col + cell.colspan - 1) < colSections.count else {
-                fatalError("colspan 超出, indexPath:(\(indexPath.row),\(indexPath.col))")
-            }
-            guard (indexPath.row + cell.rowspan - 1) < rowSections.count else {
-                fatalError("rowspan 超出, indexPath:(\(indexPath.row),\(indexPath.col))")
-            }
+            guard indexPath.col >= 0, indexPath.col < colSections.count,
+                  indexPath.row >= 0, indexPath.row < rowSections.count else { continue }
+            let safeColspan = min(max(1, cell.colspan), colSections.count - indexPath.col)
+            let safeRowspan = min(max(1, cell.rowspan), rowSections.count - indexPath.row)
 
             var x = colSections[indexPath.col].rect.minX
             var y = rowSections[indexPath.row].rect.minY
@@ -429,15 +426,15 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
             }
 
             var w: CGFloat = 0
-            for i in 1 ... cell.colspan {
+            for i in 1 ... safeColspan {
                 w = w + colSections[indexPath.col + i - 1].rect.width
             }
-            w += CGFloat(cell.colspan - 1) * style.colGap
+            w += CGFloat(safeColspan - 1) * style.colGap
             var h: CGFloat = 0
-            for i in 1 ... cell.rowspan {
+            for i in 1 ... safeRowspan {
                 h = h + rowSections[indexPath.row + (i - 1)].rect.height
             }
-            h += CGFloat(cell.rowspan - 1) * style.rowGap
+            h += CGFloat(safeRowspan - 1) * style.rowGap
             cell.frame = CGRect(x: x, y: y, width: w, height: h)
         }
     }
@@ -535,8 +532,10 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
         rowLengths.removeAll()
         colLengths.removeAll()
         spans.removeAll()
-        numberOfRows = dataSource.numberOfRows(in: self)
-        numberOfCols = dataSource.numberOfCols(in: self)
+        // Treat invalid data-source counts as an empty dimension instead of
+        // constructing a trapping negative range below.
+        numberOfRows = max(0, dataSource.numberOfRows(in: self))
+        numberOfCols = max(0, dataSource.numberOfCols(in: self))
 
         if waitUntilDone {
             reloading = true
@@ -547,7 +546,7 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
                     for col in 0 ..< numberOfCols {
                         let indexPath = TabIndexPath(row: row, col: col)
                         guard let cell = dataSource.table(self, cellForIndexPath: indexPath) else {
-                            fatalError()
+                            continue
                         }
                         let width = dataSource.table(self, lengthForCol: col)
                         let calculatedHeight = cell.sizeThatFits(CGSize(width: width, height: 0)).height
@@ -563,7 +562,7 @@ public class GMarkTableView: UIView, UIScrollViewDelegate {
                     for row in 0 ..< numberOfRows {
                         let indexPath = TabIndexPath(row: row, col: col)
                         guard let cell = dataSource.table(self, cellForIndexPath: indexPath) else {
-                            fatalError()
+                            continue
                         }
                         let height = dataSource.table(self, lengthForRow: row)
                         let calculatedWidth = cell.sizeThatFits(CGSize(width: 0, height: height)).width

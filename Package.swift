@@ -28,8 +28,6 @@ let package = Package(
         .product(name: "MathJaxSwift", package: "MathJaxSwift"),
       ],
       resources: [
-        .copy("Assets/mermaid/mermaid.min.js"),
-        .copy("Assets/mermaid/mermaid.html"),
         .copy("Assets/Highlighter/highlight.min.js"),
         .copy("Assets/styles/a11y-dark.min.css"),
         .copy("Assets/styles/a11y-light.min.css"),

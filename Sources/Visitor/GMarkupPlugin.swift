@@ -127,7 +127,7 @@ public class DefaultHTMLBlockPlugin: GMarkupPlugin {
     public func handleHTMLBlock(_ htmlBlock: HTMLBlock, visitor: inout GMarkupAttachVisitor) -> NSAttributedString? {
         let style = visitor.visitorStyle
         let rawHTML = htmlBlock.rawHTML.trimmingCharacters(in: .whitespacesAndNewlines)
-        let result = MarkdownStyleProcessor.buildDefaultAttributedString(from: rawHTML, style: style)
+        let result = GMarkHTMLSanitizer.attributedString(from: rawHTML, style: style)
         MarkdownStyleProcessor.appendBreakIfNeeded(for: htmlBlock, to: result, style: style)
         return result
     }

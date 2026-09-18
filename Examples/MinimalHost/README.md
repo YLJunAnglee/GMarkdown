@@ -5,10 +5,11 @@
 ## 从干净 Xcode 工程接入
 
 1. 新建 iOS App，Deployment Target 设为 iOS 14.0，Swift 5。
-2. 将交付目录中的 `Sources`、依赖源码和资源按 `Delivery/GMarkdown-0.1.1/SourceManifest.md` 加入同一 target；不要从业务工程散改组件源码。
-3. 把下方控制器加入 target，并确认 `GMarkdown` 模块可见。
-4. 宿主实现 `ImageLoader`，只允许经过业务白名单的 `https` 图片；未配置 loader 时图片应保持降级行为。
-5. 业务页面退出或切换大章节时调用 `clearContent()`。
+2. 在宿主工程中建立独立的 `GMarkdown` framework target，并将交付目录中的 `Sources/` 加入该 target；资源加入该 target 的资源构建阶段。
+3. 将交付目录中的依赖源码分别建立为可导入模块：`Markdown`（含 `swift-cmark` 的 C target）、`MPITextKit`、`SwiftMath`、`MathJaxSwift`；让 `GMarkdown` target 依赖这些模块。不要把不同模块的源码直接混入 App target，也不要从业务工程散改组件源码。
+4. 把下方控制器加入 App target，并确认 App 依赖 `GMarkdown` 模块。
+5. 宿主实现 `ImageLoader`，只允许经过业务白名单的 `https` 图片；未配置 loader 时图片应保持降级行为。
+6. 业务页面退出或切换大章节时调用 `clearContent()`。
 
 ## 最小控制器
 

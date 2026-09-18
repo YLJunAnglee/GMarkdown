@@ -14,10 +14,11 @@
 
 ## 构建前检查
 
-1. 将 `Sources/`、`Dependencies/` 加入宿主 target，并确认 `Sources/Assets/` 的资源 target membership。
-2. 检查 `Licenses/` 是否包含 swift-markdown、MPITextKit、SwiftMath、MathJaxSwift、Highlightr 及其传递依赖许可证。
-3. 编译 Debug 和 Release；确认最低 iOS 14，且没有把 Mermaid/HTML WebView 资源带入首发包。
-4. 使用 `Examples/MinimalHost/` 的最小控制器完成干净构建/启动，再运行固定回归集。
-5. 真机 Release 完成性能/内存基线后，才填写候选版本的验收记录。
+1. 建立独立的 `GMarkdown` framework target，将 `Sources/` 和 `Sources/Assets/` 加入其中；不要把组件源码直接混入业务 App target。
+2. 将 `Dependencies/` 中的 `Markdown`（含 `swift-cmark` C target）、`MPITextKit`、`SwiftMath`、`MathJaxSwift` 分别建立为可导入模块，并让 `GMarkdown` target 显式依赖它们。
+3. 检查 `Licenses/` 是否包含 swift-markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 和 highlight.js 许可证。
+4. 编译 Debug 和 Release；确认最低 iOS 14，且没有把 Mermaid/HTML WebView 资源带入首发包。
+5. 使用 `Examples/MinimalHost/` 的最小控制器完成干净构建/启动，再运行固定回归集。
+6. 真机 Release 完成性能/内存基线后，才填写候选版本的验收记录。
 
 当前状态：全新最小宿主已由用户确认通过本地 Package 在模拟器中构建、启动、换行、深色模式和 Dynamic Type 验证；源码文件夹复制、许可证汇总、资源包大小、Release 构建和真机基线仍待阶段 E/D 完成。

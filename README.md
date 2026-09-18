@@ -13,7 +13,7 @@ GMarkdown is a native iOS Markdown renderer built on swift-markdown, MPITextKit,
 
 ## Source-folder integration
 
-The first-release delivery is a source folder. Add the delivered `Sources` files and required dependency sources/resources to the application target in Xcode. CocoaPods and Swift Package Manager are not part of this integration contract.
+The first-release delivery is a source folder. Create separate framework/module targets for GMarkdown and its required dependencies (`Markdown`/`swift-cmark`, `MPITextKit`, `SwiftMath`, and `MathJaxSwift`), then make the host application depend on GMarkdown. Add the delivered resources to the GMarkdown target. CocoaPods and Swift Package Manager are not part of this integration contract.
 
 The delivery must retain the dependency licenses and resource files listed by the release manifest. Do not copy only the GMarkdown Swift files while omitting MPITextKit, SwiftMath, Highlightr, swift-markdown or their resources.
 

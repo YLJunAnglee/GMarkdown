@@ -20,8 +20,11 @@ final class MinimalReaderViewController: UIViewController {
     }
 
     func render(markdown: String) {
+        var style = MarkdownStyle.defaultStyle()
+        style.maxContainerWidth = markdownView.bounds.width
+
         let generator = GMarkChunkGenerator()
-        generator.style = MarkdownStyle.defaultStyle()
+        generator.style = style
         generator.addImageHandler()
         generator.addLaTexHandler()
 

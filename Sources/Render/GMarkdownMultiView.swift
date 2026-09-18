@@ -244,6 +244,12 @@ public class GMarkdownMultiView: UIView {
         snapshot.appendSections([.main])
         snapshot.appendItems(items, toSection: .main)
         dataSource.apply(snapshot, animatingDifferences: false)
+        // Content can be supplied after the view has already completed its
+        // first layout pass. Re-measure the chunks against the current host
+        // width instead of leaving the initial maxContainerWidth in place.
+        collectionView.collectionViewLayout.invalidateLayout()
+        setNeedsLayout()
+        layoutIfNeeded()
     }
 
     /// Releases the current chunk snapshot and associated style references.

@@ -2,7 +2,7 @@ name: GMarkdownExample
 options:
   bundleIdPrefix: com.giki.markdown
   deploymentTarget:
-    iOS: 13.0
+    iOS: 14.0
 packages:
     GMarkdown:
         path: ../..

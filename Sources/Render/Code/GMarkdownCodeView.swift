@@ -82,31 +82,37 @@ open class GMarkdownCodeView: UIView {
         )
     }
 
+    override public func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        container.layer.borderColor = UIColor.separator.cgColor
+    }
+
     private func setupViews() {
-        backgroundColor = .white
+        backgroundColor = .systemBackground
 
         container = UIView()
-        container.backgroundColor = UIColor(hex: "#E7E7E7")
+        container.backgroundColor = .secondarySystemBackground
         container.layer.cornerRadius = 12
         container.layer.masksToBounds = true
-        container.layer.borderColor = UIColor(red: 0.973, green: 0.973, blue: 0.973, alpha: 1).cgColor
+        container.layer.borderColor = UIColor.separator.cgColor
         container.layer.borderWidth = 1
         addSubview(container)
 
         topView = UIView()
-        topView.backgroundColor = UIColor(hex: "#FFFFFF")
+        topView.backgroundColor = .systemBackground
         container.addSubview(topView)
 
         _ = NSMutableParagraphStyle()
         languageLabel = UILabel()
         languageLabel.font = UIFont(name: "PingFangSC-Medium", size: 14)
-        languageLabel.textColor = UIColor(hex: "#000000")
+        languageLabel.textColor = .label
         topView.addSubview(languageLabel)
 
         codeCopyButton = UIButton(type: .custom)
         codeCopyButton.addTarget(self, action: #selector(codeCopyAction), for: .touchUpInside)
         codeCopyButton.setTitle("Copy", for: .normal)
-        codeCopyButton.setTitleColor(UIColor(hex: "#666666"), for: .normal)
+        codeCopyButton.setTitleColor(.secondaryLabel, for: .normal)
         codeCopyButton.titleLabel?.font = UIFont.systemFont(ofSize: 12)
         codeCopyButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         codeCopyButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 2, bottom: 0, right: -2)

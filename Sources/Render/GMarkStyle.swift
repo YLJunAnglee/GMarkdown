@@ -180,21 +180,54 @@ struct DefaultFontStyle: FontStyle {
     var quoteFont: UIFont = .systemFont(ofSize: 12, weight: .light)
 }
 
+/// Applies the system Dynamic Type scale while preserving the host's font
+/// family, weight, and italic traits.
+struct DynamicTypeFontStyle: FontStyle {
+    var current: UIFont
+    var h1: UIFont
+    var h2: UIFont
+    var h3: UIFont
+    var h4: UIFont
+    var h5: UIFont
+    var h6: UIFont
+    var paragraph: UIFont
+    var inlineCodeFont: UIFont
+    var quoteFont: UIFont
+
+    init(base: FontStyle, compatibleWith traitCollection: UITraitCollection) {
+        let metrics = UIFontMetrics.default
+        func scale(_ font: UIFont) -> UIFont {
+            metrics.scaledFont(for: font, compatibleWith: traitCollection)
+        }
+
+        current = scale(base.current)
+        h1 = scale(base.h1)
+        h2 = scale(base.h2)
+        h3 = scale(base.h3)
+        h4 = scale(base.h4)
+        h5 = scale(base.h5)
+        h6 = scale(base.h6)
+        paragraph = scale(base.paragraph)
+        inlineCodeFont = scale(base.inlineCodeFont)
+        quoteFont = scale(base.quoteFont)
+    }
+}
+
 struct DefaultColorStyle: ColorStyle {
-    var current: UIColor = .black
-    var h1: UIColor = .black
-    var h2: UIColor = .black
-    var h3: UIColor = .black
-    var h4: UIColor = .black
-    var h5: UIColor = .black
-    var h6: UIColor = .black
-    var inlineCodeForeground: UIColor = .black
-    var inlineCodeBackground: UIColor = .gray.withAlphaComponent(0.3)
-    var quoteBackground: UIColor = .gray.withAlphaComponent(0.3)
-    var quoteForeground: UIColor = .black
+    var current: UIColor = .label
+    var h1: UIColor = .label
+    var h2: UIColor = .label
+    var h3: UIColor = .label
+    var h4: UIColor = .label
+    var h5: UIColor = .label
+    var h6: UIColor = .label
+    var inlineCodeForeground: UIColor = .label
+    var inlineCodeBackground: UIColor = .secondarySystemFill
+    var quoteBackground: UIColor = .secondarySystemFill
+    var quoteForeground: UIColor = .label
     var link: UIColor = .init(red: 0, green: 0.439, blue: 0.788, alpha: 1)
     var linkUnderline: UIColor = .systemBlue
-    var paragraph: UIColor = .black
+    var paragraph: UIColor = .label
 }
 
 struct DefaultParagraphStyle: ParagraphStyle {
@@ -207,40 +240,40 @@ struct DefaultParagraphStyle: ParagraphStyle {
 struct DefaultCodeBlockStyle: CodeBlockStyle {
     var customRender: Bool = true
     var font: UIFont = .monospacedSystemFont(ofSize: 16, weight: .regular)
-    var foregroundColor: UIColor = .black
-    var backgroundColor: UIColor = .black.withAlphaComponent(0.06)
+    var foregroundColor: UIColor = .label
+    var backgroundColor: UIColor = .secondarySystemBackground
     var cornerRadius: CGFloat = 8
     var padding: UIEdgeInsets = .init(top: 12, left: 0, bottom: 12, right: 0)
     var useHighlight: Bool = true
 }
 
 struct DefaultListStyle: ListStyle {
-    var bulletColor: UIColor = .black
+    var bulletColor: UIColor = .label
     var indentation: CGFloat = 20
     var bulletFont: UIFont = .systemFont(ofSize: 18)
 }
 
 struct DefaultBlockquoteStyle: BlockquoteStyle {
     var backgroundColor: UIColor = .clear
-    var borderColor: UIColor = .init(red: 0.906, green: 0.906, blue: 0.906, alpha: 1)
+    var borderColor: UIColor = .separator
     var borderWidth: CGFloat = 2
     var font: UIFont = .italicSystemFont(ofSize: 18)
-    var textColor: UIColor = .black
+    var textColor: UIColor = .label
     var padding: UIEdgeInsets = .init(top: 0, left: 0, bottom: 0, right: 0)
 }
 
 public struct DefaultTableStyle: TableStyle {
     /// Colors are kept here so clients can restyle a whole table without
     /// changing table layout code.
-    public var borderColor: UIColor = UIColor(hex: "#D1D5DB")
+    public var borderColor: UIColor = .separator
     public var borderWidth: CGFloat = 1
     public var padding: UIEdgeInsets = .init(top: 12, left: 0, bottom: 12, right: 0)
     public var cellWidth: CGFloat = 60
     public var cellHeight: CGFloat = 44
-    public var headerBackgroundColor: UIColor = UIColor(hex: "#F3F4F6")
-    public var headerTextColor: UIColor = .black
-    public var bodyBackgroundColor: UIColor = .white
-    public var rowAlternateBackgroundColor: UIColor? = .white
+    public var headerBackgroundColor: UIColor = .secondarySystemBackground
+    public var headerTextColor: UIColor = .label
+    public var bodyBackgroundColor: UIColor = .systemBackground
+    public var rowAlternateBackgroundColor: UIColor? = .systemBackground
     public var cellPadding: UIEdgeInsets = .init(top: 6, left: 16, bottom: 6, right: 16)
     public var cellMaximumWidth: CGFloat = 500
     // Tables describe structured data. Truncating a cell after two lines silently
@@ -252,7 +285,7 @@ public struct DefaultTableStyle: TableStyle {
 }
 
 struct DefaultImageStyle: ImageStyle {
-    var backgroundColor: UIColor = .lightGray
+    var backgroundColor: UIColor = .tertiarySystemFill
     var borderColor: UIColor = .clear
     var borderWidth: CGFloat = 0
     var cornerRadius: CGFloat = 4

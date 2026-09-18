@@ -21,6 +21,9 @@ class GMarkLatexCell: UICollectionViewCell, ChunkCellConfigurable {
         imageView.contentMode = .scaleAspectFit
         return imageView
     }()
+
+    private var sourceImage: UIImage?
+    private var imageTopPadding: CGFloat = 0
     
     
     override public init(frame: CGRect) {
@@ -36,6 +39,24 @@ class GMarkLatexCell: UICollectionViewCell, ChunkCellConfigurable {
     public override func layoutSubviews() {
         super.layoutSubviews()
         scrollView.frame = contentView.bounds
+        guard let image = latexImageView.image else { return }
+        let left = max(0, (scrollView.bounds.width - image.size.width) * 0.5)
+        latexImageView.frame = CGRect(
+            x: left,
+            y: imageTopPadding,
+            width: image.size.width,
+            height: image.size.height
+        )
+        scrollView.contentSize = CGSize(
+            width: max(image.size.width, scrollView.bounds.width),
+            height: imageTopPadding + image.size.height
+        )
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        applyAppearance()
     }
 
     func setupUI() {
@@ -46,15 +67,29 @@ class GMarkLatexCell: UICollectionViewCell, ChunkCellConfigurable {
     
     func configure(with chunk: GMarkChunk) {
         if let image = chunk.latexImage {
+            sourceImage = image
+            imageTopPadding = chunk.style.codeBlockStyle.padding.top
             latexImageView.isHidden = false
-            latexImageView.image = image
-            if image.size.width >= CGRectGetWidth(scrollView.frame) {
-                latexImageView.frame = CGRect(x: 0, y: chunk.style.codeBlockStyle.padding.top, width: image.size.width, height: image.size.height)
-            } else {
-                let left = (CGRectGetWidth(scrollView.frame) - image.size.width) * 0.5
-                latexImageView.frame = CGRect(x: left, y: chunk.style.codeBlockStyle.padding.top, width: image.size.width, height: image.size.height)
-            }
-            scrollView.contentSize = CGSize(width: image.size.width, height: image.size.height)
-        } 
+            applyAppearance()
+            setNeedsLayout()
+        } else {
+            sourceImage = nil
+            latexImageView.image = nil
+            latexImageView.isHidden = true
+            scrollView.contentSize = .zero
+        }
+    }
+
+    private func applyAppearance() {
+        guard let sourceImage else { return }
+        let scale = UIFontMetrics.default.scaledValue(for: 1, compatibleWith: traitCollection)
+        let targetSize = CGSize(width: sourceImage.size.width * scale, height: sourceImage.size.height * scale)
+        let scaledImage = abs(scale - 1) > 0.001 ? sourceImage.resized(to: targetSize) : sourceImage
+        if traitCollection.userInterfaceStyle == .dark {
+            latexImageView.image = scaledImage.withTintColor(.label, renderingMode: .alwaysOriginal)
+        } else {
+            latexImageView.image = scaledImage
+        }
+        setNeedsLayout()
     }
 }

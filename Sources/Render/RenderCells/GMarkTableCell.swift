@@ -36,7 +36,7 @@ class GMarkTableCell: UICollectionViewCell, GMarkTableViewDataSource, ChunkCellC
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        table.backgroundColor = .white
+        table.backgroundColor = .systemBackground
         table.register(GMarkTableRichLabelCell.self, forCellReuseIdentifier: "GMarkTableRichLabelCell")
         table.dataSource = self
         table.style = style

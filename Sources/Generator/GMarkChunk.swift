@@ -220,6 +220,60 @@ public final class GMarkChunk: Hashable, Sendable {
 // MARK: - Container-driven layout
 
 extension GMarkChunk {
+    /// Rebuilds measured renderers with fonts scaled for the current Dynamic
+    /// Type category. The caller supplies immutable source values so repeated
+    /// trait changes never accumulate scaling.
+    func applyDynamicType(style: Style,
+                          baseAttributedText: NSAttributedString?,
+                          baseTable: GMarkTable?,
+                          baseAttachmentSizes: [(NSRange, CGSize)],
+                          baseTableAttachmentSizes: (headers: [[(NSRange, CGSize)]], body: [[[(NSRange, CGSize)]]])?,
+                          compatibleWith traitCollection: UITraitCollection) {
+        self.style = style
+
+        switch chunkType {
+        case .Text, .Code:
+            if let baseAttributedText {
+                attributedText = baseAttributedText.scaledFonts(
+                    compatibleWith: traitCollection,
+                    baseAttachmentSizes: baseAttachmentSizes
+                )
+            }
+            if chunkType == .Text {
+                generatorTextRender()
+            } else {
+                calculateCode()
+            }
+        case .Table:
+            guard var baseTable else { return }
+            baseTable.headers = baseTable.headers?.enumerated().map { index, text in
+                let sizes = baseTableAttachmentSizes?.headers[safe: index] ?? []
+                return text.scaledFonts(compatibleWith: traitCollection, baseAttachmentSizes: sizes)
+            }
+            baseTable.bodys = baseTable.bodys?.enumerated().map { rowIndex, row in
+                row.enumerated().map { cellIndex, text in
+                    let sizes = baseTableAttachmentSizes?.body[safe: rowIndex]?[safe: cellIndex] ?? []
+                    return text.scaledFonts(compatibleWith: traitCollection, baseAttachmentSizes: sizes)
+                }
+            }
+            tableRender = GMarkTableLayout(markTable: baseTable, style: style)
+            itemSize = CGSize(width: style.maxContainerWidth, height: tableRender?.tableHeight ?? 0)
+        case .Latex:
+            if let latexImage {
+                let scale = UIFontMetrics.default.scaledValue(for: 1, compatibleWith: traitCollection)
+                let padding = style.codeBlockStyle.padding
+                itemSize = CGSize(
+                    width: style.maxContainerWidth,
+                    height: latexImage.size.height * scale + padding.top + padding.bottom
+                )
+            } else {
+                calculateLatexText()
+            }
+        default:
+            break
+        }
+    }
+
     /// Re-measures a prepared chunk for a changed host container width.
     /// The original style is restored first so repeated rotations/split changes
     /// do not accumulate rounding or shrink the configured maximum permanently.
@@ -254,5 +308,43 @@ extension GMarkChunk {
             itemSize.width = width
         }
         return true
+    }
+}
+
+extension NSAttributedString {
+    func attachmentSizes() -> [(NSRange, CGSize)] {
+        var result: [(NSRange, CGSize)] = []
+        enumerateAttribute(.attachment, in: NSRange(location: 0, length: length), options: []) { value, range, _ in
+            if let attachment = value as? MPITextAttachment {
+                result.append((range, attachment.contentSize))
+            }
+        }
+        return result
+    }
+
+    func scaledFonts(compatibleWith traitCollection: UITraitCollection,
+                     baseAttachmentSizes: [(NSRange, CGSize)] = []) -> NSAttributedString {
+        let result = NSMutableAttributedString(attributedString: self)
+        let metrics = UIFontMetrics.default
+        enumerateAttribute(.font, in: NSRange(location: 0, length: length), options: []) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            result.addAttribute(
+                .font,
+                value: metrics.scaledFont(for: font, compatibleWith: traitCollection),
+                range: range
+            )
+        }
+        let scale = metrics.scaledValue(for: 1, compatibleWith: traitCollection)
+        for (range, baseSize) in baseAttachmentSizes {
+            guard range.location < result.length,
+                  let attachment = result.attribute(.attachment, at: range.location, effectiveRange: nil) as? MPITextAttachment else {
+                continue
+            }
+            let scaledAttachment = MPITextAttachment()
+            scaledAttachment.content = attachment.content
+            scaledAttachment.contentSize = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
+            result.addAttribute(.attachment, value: scaledAttachment, range: range)
+        }
+        return result
     }
 }

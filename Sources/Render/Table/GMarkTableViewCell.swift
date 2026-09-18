@@ -31,7 +31,7 @@ public class GMarkTableViewCell: UIView {
     }
 
     private func setup() {
-        backgroundColor = .white
+        backgroundColor = .systemBackground
         clipsToBounds = true
     }
 

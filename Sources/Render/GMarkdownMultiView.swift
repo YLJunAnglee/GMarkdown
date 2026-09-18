@@ -86,11 +86,17 @@ extension UICollectionView {
 
 public class GMarkdownMultiView: UIView {
     // MARK: - Properties
+
+    private typealias AttachmentSizes = [(NSRange, CGSize)]
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, GMarkChunk>!
     private var chunks: [GMarkChunk] = []
     private var sourceStyles: [ObjectIdentifier: Style] = [:]
+    private var sourceAttributedTexts: [ObjectIdentifier: NSAttributedString] = [:]
+    private var sourceTables: [ObjectIdentifier: GMarkTable] = [:]
+    private var sourceAttachmentSizes: [ObjectIdentifier: [(NSRange, CGSize)]] = [:]
+    private var sourceTableAttachmentSizes: [ObjectIdentifier: (headers: [AttachmentSizes], body: [[AttachmentSizes]])] = [:]
     private var lastContainerWidth: CGFloat = 0
     
     public var handlerChain: GMarkHandlerChain = .init()
@@ -108,9 +114,28 @@ public class GMarkdownMultiView: UIView {
     }
     
     private func commonInit() {
+        GMarkCodeHighlight.shared.changeDark(traitCollection.userInterfaceStyle == .dark)
         addHandlers()
         setupCollectionView()
         configureDataSource()
+    }
+
+    override public func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        let appearanceChanged = previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle
+        let dynamicTypeChanged = previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory
+        guard appearanceChanged || dynamicTypeChanged else { return }
+        if appearanceChanged {
+            GMarkCodeHighlight.shared.changeDark(traitCollection.userInterfaceStyle == .dark)
+        }
+        applyDynamicTypeToChunks()
+        guard collectionView != nil else { return }
+        // MPITextKit and attachment cells retain layout/rendering snapshots.
+        // A trait change must reconfigure visible cells immediately; waiting
+        // for scrolling/reuse leaves a blank or stale middle section.
+        collectionView.reloadData()
+        collectionView.collectionViewLayout.invalidateLayout()
+        collectionView.layoutIfNeeded()
     }
 
     override public func layoutSubviews() {
@@ -126,6 +151,7 @@ public class GMarkdownMultiView: UIView {
             changed = chunk.relayout(for: width, preserving: originalStyle) || changed
         }
         guard changed else { return }
+        applyDynamicTypeToChunks()
         collectionView.collectionViewLayout.invalidateLayout()
         collectionView.reloadData()
     }
@@ -194,6 +220,25 @@ public class GMarkdownMultiView: UIView {
     public func updateMarkdown(_ items: [GMarkChunk]) {
         chunks = items
         sourceStyles = Dictionary(uniqueKeysWithValues: items.map { (ObjectIdentifier($0), $0.style) })
+        sourceAttributedTexts = Dictionary(uniqueKeysWithValues: items.map { (ObjectIdentifier($0), $0.attributedText) })
+        sourceAttachmentSizes = Dictionary(uniqueKeysWithValues: items.map {
+            (ObjectIdentifier($0), $0.attributedText.attachmentSizes())
+        })
+        sourceTables = Dictionary(uniqueKeysWithValues: items.compactMap { item in
+            guard let table = item.tableRender?.markTable else { return nil }
+            return (ObjectIdentifier(item), table)
+        })
+        sourceTableAttachmentSizes = Dictionary(uniqueKeysWithValues: items.compactMap { item in
+            guard let table = item.tableRender?.markTable else { return nil }
+            return (
+                ObjectIdentifier(item),
+                (
+                    headers: table.headers?.map { $0.attachmentSizes() } ?? [],
+                    body: table.bodys?.map { $0.map { $0.attachmentSizes() } } ?? []
+                )
+            )
+        })
+        applyDynamicTypeToChunks()
         lastContainerWidth = 0
         var snapshot = NSDiffableDataSourceSnapshot<Section, GMarkChunk>()
         snapshot.appendSections([.main])
@@ -214,10 +259,35 @@ public class GMarkdownMultiView: UIView {
 
         chunks.removeAll(keepingCapacity: false)
         sourceStyles.removeAll(keepingCapacity: false)
+        sourceAttributedTexts.removeAll(keepingCapacity: false)
+        sourceTables.removeAll(keepingCapacity: false)
+        sourceAttachmentSizes.removeAll(keepingCapacity: false)
+        sourceTableAttachmentSizes.removeAll(keepingCapacity: false)
         lastContainerWidth = 0
         var snapshot = NSDiffableDataSourceSnapshot<Section, GMarkChunk>()
         snapshot.appendSections([.main])
         dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
+    private func applyDynamicTypeToChunks() {
+        guard !chunks.isEmpty else { return }
+        for chunk in chunks {
+            let key = ObjectIdentifier(chunk)
+            guard let originalStyle = sourceStyles[key] else { continue }
+            var scaledStyle = originalStyle
+            scaledStyle.fonts = DynamicTypeFontStyle(
+                base: originalStyle.fonts,
+                compatibleWith: traitCollection
+            )
+            chunk.applyDynamicType(
+                style: scaledStyle,
+                baseAttributedText: sourceAttributedTexts[key],
+                baseTable: sourceTables[key],
+                baseAttachmentSizes: sourceAttachmentSizes[key] ?? [],
+                baseTableAttachmentSizes: sourceTableAttachmentSizes[key],
+                compatibleWith: traitCollection
+            )
+        }
     }
 }
 

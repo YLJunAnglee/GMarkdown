@@ -89,6 +89,9 @@ public class GMarkdownMultiView: UIView {
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, GMarkChunk>!
+    private var chunks: [GMarkChunk] = []
+    private var sourceStyles: [ObjectIdentifier: Style] = [:]
+    private var lastContainerWidth: CGFloat = 0
     
     public var handlerChain: GMarkHandlerChain = .init()
     
@@ -108,6 +111,23 @@ public class GMarkdownMultiView: UIView {
         addHandlers()
         setupCollectionView()
         configureDataSource()
+    }
+
+    override public func layoutSubviews() {
+        super.layoutSubviews()
+        let width = bounds.width
+        guard width > 0, abs(width - lastContainerWidth) > 0.5 else { return }
+        lastContainerWidth = width
+        guard !chunks.isEmpty else { return }
+
+        var changed = false
+        for chunk in chunks {
+            guard let originalStyle = sourceStyles[ObjectIdentifier(chunk)] else { continue }
+            changed = chunk.relayout(for: width, preserving: originalStyle) || changed
+        }
+        guard changed else { return }
+        collectionView.collectionViewLayout.invalidateLayout()
+        collectionView.reloadData()
     }
     
     // MARK: - Setup
@@ -172,9 +192,31 @@ public class GMarkdownMultiView: UIView {
     // MARK: - Public Methods
     
     public func updateMarkdown(_ items: [GMarkChunk]) {
+        chunks = items
+        sourceStyles = Dictionary(uniqueKeysWithValues: items.map { (ObjectIdentifier($0), $0.style) })
+        lastContainerWidth = 0
         var snapshot = NSDiffableDataSourceSnapshot<Section, GMarkChunk>()
         snapshot.appendSections([.main])
         snapshot.appendItems(items, toSection: .main)
+        dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
+    /// Releases the current chunk snapshot and associated style references.
+    /// Call this on page exit or before dropping a large document. UIKit state
+    /// changes are marshalled to the main thread when invoked by a host task.
+    public func clearContent() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.clearContent()
+            }
+            return
+        }
+
+        chunks.removeAll(keepingCapacity: false)
+        sourceStyles.removeAll(keepingCapacity: false)
+        lastContainerWidth = 0
+        var snapshot = NSDiffableDataSourceSnapshot<Section, GMarkChunk>()
+        snapshot.appendSections([.main])
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 }
@@ -182,10 +224,10 @@ public class GMarkdownMultiView: UIView {
 extension GMarkdownMultiView: UICollectionViewDelegateFlowLayout {
     public func collectionView(_: UICollectionView, layout _: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         guard let item = dataSource.itemIdentifier(for: indexPath) else {
-            return CGSize(width: UIScreen.main.bounds.width, height: 0.00)
+            return CGSize(width: max(bounds.width, 1), height: 0.00)
         }
-        
-        let width = min(item.style.maxContainerWidth, UIScreen.main.bounds.width)
+
+        let width = min(item.style.maxContainerWidth, max(bounds.width, 1))
         return CGSize(width: width, height: item.itemSize.height)
     }
 }

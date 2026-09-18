@@ -1,131 +1,78 @@
 # GMarkdown
 
-**语言**: [English](README.md) | [中文](https://github.com/GIKICoder/GMarkdown/blob/main/README-zh.md)
+GMarkdown is a native iOS Markdown renderer built on swift-markdown, MPITextKit, SwiftMath and Highlightr.
 
-[GMarkdown](https://github.com/GIKICoder/GMarkdown.git) is a powerful and versatile Markdown rendering library designed for Swift developers. Built on top of the swift-markdown parser, GMarkdown offers pure native rendering capabilities, ensuring seamless integration and high performance for your iOS applications.
+## Current integration contract
 
-GMarkdown is currently in the testing phase. Although efforts have been made to support different styles of markdown, some code-level optimizations and modifications are still needed to make the GMarkdown architecture more reasonable. If time permits, part of the code logic will be redesigned in the future.
+- Minimum deployment target: iOS 14.0.
+- Primary supported renderer: `GMarkdownMultiView` block rendering.
+- iPhone portrait and iPad portrait/landscape/split view are supported; iPhone landscape is not a first-release target.
+- Mermaid is displayed as code only; it is not executed or previewed.
+- HTML is display-only and sanitized. Scripts, WebView previews, arbitrary URLs and external HTML resources are not executed or loaded.
+- TextView rendering remains an experimental/diagnostic path and is not covered by the first-release acceptance contract.
 
-## ✨ What's New
+## Source-folder integration
 
-### 🎉 CocoaPods Support Now Available!
-GMarkdown can now be easily integrated into your project using CocoaPods. Simply add the following to your Podfile:
+The first-release delivery is a source folder. Add the delivered `Sources` files and required dependency sources/resources to the application target in Xcode. CocoaPods and Swift Package Manager are not part of this integration contract.
 
-```ruby
-pod 'GMarkdown'
-```
+The delivery must retain the dependency licenses and resource files listed by the release manifest. Do not copy only the GMarkdown Swift files while omitting MPITextKit, SwiftMath, Highlightr, swift-markdown or their resources.
 
-## Features
-
-- **Pure Native Rendering**: Enjoy the benefits of pure native rendering for all your markdown content, ensuring fast and efficient performance.
-- **Rich Text Support**: GMarkdown supports a wide range of rich text styles, making your markdown content look professional and polished.
-- **Image Rendering**: Effortlessly render images within your markdown content.
-- **Code Blocks**: Display code with syntax highlighting, making it easy to present and read code snippets.
-- **Tables**: Create and render tables to organize your data effectively.
-- **LaTeX Math Formulas**: Render complex mathematical equations using LaTeX, perfect for academic and scientific content.
-- **Mermaid Diagrams**: Create beautiful flowcharts, sequence diagrams, and other visual representations using Mermaid syntax.
-- **HTML Preview**: Seamlessly preview and render HTML content within your markdown documents for enhanced formatting flexibility.
-
-## Requirements
-
-[GMarkdown](https://github.com/GIKICoder/GMarkdown.git) works on iOS 13+ and depends on the following frameworks:
-
-- [swift-markdown](https://github.com/apple/swift-markdown.git)
-- [SwiftMath](https://github.com/mgriebling/SwiftMath.git)
-- [MPITextKit](https://github.com/meitu/MPITextKit.git)
-- [Highlightr](https://github.com/raspu/Highlightr.git)
-
-## Installation
-
-
-### Swift Package Manager (Recommended)
-
-GMarkdown is also available through Swift Package Manager. To include it in your project, add the following to your `Package.swift`:
+## Basic usage
 
 ```swift
-dependencies: [
-    .package(url: "https://github.com/GIKICoder/GMarkdown.git", from: "0.0.6")
-]
-```
+import GMarkdown
 
-### CocoaPods 
+final class ReaderViewController: UIViewController {
+    private let markdownView = GMarkdownMultiView()
 
-GMarkdown is available through [CocoaPods](https://cocoapods.org). To install it, simply add the following line to your Podfile:
-
-```ruby
-pod 'GMarkdown'
-```
-
-Then run:
-
-```bash
-pod install
-```
-
-
-## Usage
-
-### Initialization
-
-To initialize and add a GMarkdown view to your view hierarchy:
-
-```swift
-let markdownView = GMarkdownMultiView()
-view.addSubview(markdownView)
-markdownView.frame = view.bounds
-```
-
-### Example
-
-Here's a complete example of how to load and render Markdown content from a file:
-
-```swift
-func setupMarkdown() async {
-    guard let filepath = Bundle.main.path(forResource: "markdown", ofType: nil),
-          let filecontents = try? String(contentsOfFile: filepath, encoding: .utf8) else {
-        return
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.addSubview(markdownView)
+        markdownView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            markdownView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            markdownView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            markdownView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            markdownView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
     }
 
-    let chunks = await parseMarkdown(filecontents)
+    func render(_ markdown: String) {
+        let generator = GMarkChunkGenerator()
+        generator.style = MarkdownStyle.defaultStyle()
+        generator.addImageHandler()
+        generator.addLaTexHandler()
 
-    DispatchQueue.main.async { [weak self] in
-        self?.markdownView.updateMarkdown(chunks)
-    }
-}
+        let processor = GMarkProcessor(
+            parser: GMarkParser(),
+            chunkGenerator: generator
+        )
+        let chunks = processor.process(markdown: markdown)
 
-func parseMarkdown(_ content: String) async -> [GMarkChunk] {
-    return await withCheckedContinuation { continuation in
-        DispatchQueue.global(qos: .userInitiated).async {
-            let processor = GMarkProcessor()
-            let chunks = processor.process(markdown: content)
-            continuation.resume(returning: chunks)
+        DispatchQueue.main.async { [weak self] in
+            self?.markdownView.updateMarkdown(chunks)
         }
     }
 }
 ```
-## Example
-[Youtube](https://youtube.com/shorts/_b8cwKrxHmc?si=kEekUGJQiaulqcOD)
 
+Prepare and parse content away from the main thread when the host's parser/dependencies permit it, then call `updateMarkdown(_:)` on the main thread. The component owns rendering and layout; loading, pagination, streaming and business refresh policy remain the host's responsibility.
 
-## Screenshots
+Call `clearContent()` on page exit or before releasing a large document when the host wants to drop the current chunk snapshot early.
 
-<a href="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/1.png"><img src="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/1.png" alt="Screenshot 1" width="300"/></a>
-<a href="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/2.png"><img src="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/2.png" alt="Screenshot 2" width="300"/></a>
-<a href="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/3.png"><img src="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/3.png" alt="Screenshot 3" width="300"/></a>
-<a href="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/4.png"><img src="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/4.png" alt="Screenshot 4" width="300"/></a>
-<a href="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/5.png"><img src="https://github.com/GIKICoder/GMarkdown/blob/main/screenshot/5.png" alt="Screenshot 5" width="300"/></a>
+## Supported content and degradation
 
+Headings, paragraphs, emphasis, lists, blockquotes, code blocks with Copy, tables, Markdown images, LaTeX formulas, links and restricted HTML are supported by the block path. Failed images use the configured fallback behavior. HTML code fences are shown and copied as source text, never previewed.
+
+Malformed formulas or unsupported TeX extensions may degrade to readable text. The renderer does not rewrite arbitrary unmatched `$` or unknown macros.
+
+## Dependencies
+
+- [swift-markdown](https://github.com/apple/swift-markdown)
+- [SwiftMath](https://github.com/mgriebling/SwiftMath)
+- [MPITextKit](https://github.com/meitu/MPITextKit)
+- [Highlightr](https://github.com/raspu/Highlightr)
 
 ## License
 
-GMarkdown is released under the MIT license. See [LICENSE](./LICENSE) for details.
-
-## Contributions
-
-Contributions are welcome! Please submit pull requests or open issues to help improve GMarkdown.
-
----
-
-
-
-Happy coding!
+GMarkdown is released under the MIT license. See [LICENSE](./LICENSE).

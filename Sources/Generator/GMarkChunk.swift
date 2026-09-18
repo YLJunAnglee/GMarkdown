@@ -53,10 +53,10 @@ public final class GMarkChunk: Hashable, Sendable {
     public var truncationTextRender: MPITextRenderer?
     
     /// The size of the chunk item.
-    public var itemSize: CGSize = CGSize(width: UIScreen.main.bounds.width, height: 0)
+    public var itemSize: CGSize = .zero
     
     /// The size of the truncated chunk item.
-    public var truncationItemSize: CGSize = CGSize(width: UIScreen.main.bounds.width, height: 0)
+    public var truncationItemSize: CGSize = .zero
     
     /// The style applied to the chunk.
     public var style: Style = MarkdownStyle.defaultStyle()
@@ -214,5 +214,45 @@ public final class GMarkChunk: Hashable, Sendable {
         let randomNumber = Int.random(in: 0 ... 10000)
         let resultString = "\(timestamp)\(randomNumber)"
         return resultString + UUID().uuidString
+    }
+}
+
+// MARK: - Container-driven layout
+
+extension GMarkChunk {
+    /// Re-measures a prepared chunk for a changed host container width.
+    /// The original style is restored first so repeated rotations/split changes
+    /// do not accumulate rounding or shrink the configured maximum permanently.
+    @discardableResult
+    func relayout(for containerWidth: CGFloat, preserving originalStyle: Style) -> Bool {
+        let width = max(1, min(originalStyle.maxContainerWidth, containerWidth))
+        guard abs(style.maxContainerWidth - width) > 0.5 else { return false }
+
+        style = originalStyle
+        style.maxContainerWidth = width
+
+        switch chunkType {
+        case .Text:
+            generatorTextRender()
+        case .Code:
+            calculateCode()
+        case .Latex:
+            if latexImage == nil {
+                calculateLatexText()
+            } else {
+                itemSize.width = width
+            }
+        case .Table:
+            if let table = tableRender {
+                var tableStyle = style.tableStyle
+                tableStyle.cellMaximumWidth = max(20, min(tableStyle.cellMaximumWidth, width - tableStyle.cellPadding.left - tableStyle.cellPadding.right))
+                style.tableStyle = tableStyle
+                tableRender = GMarkTableLayout(markTable: table.markTable, style: style)
+                itemSize = CGSize(width: width, height: tableRender?.tableHeight ?? 0)
+            }
+        default:
+            itemSize.width = width
+        }
+        return true
     }
 }

@@ -242,7 +242,7 @@ public struct DefaultTableStyle: TableStyle {
     public var bodyBackgroundColor: UIColor = .white
     public var rowAlternateBackgroundColor: UIColor? = .white
     public var cellPadding: UIEdgeInsets = .init(top: 6, left: 16, bottom: 6, right: 16)
-    public var cellMaximumWidth: CGFloat = UIScreen.main.bounds.width - 12 - 32
+    public var cellMaximumWidth: CGFloat = 500
     // Tables describe structured data. Truncating a cell after two lines silently
     // drops source content such as `<br>`-separated properties and formula diagrams.
     // MPITextKit uses zero as its unlimited-line sentinel.
@@ -257,7 +257,7 @@ struct DefaultImageStyle: ImageStyle {
     var borderWidth: CGFloat = 0
     var cornerRadius: CGFloat = 4
     var padding: UIEdgeInsets = .zero
-    var size: CGSize = CGSizeMake(UIScreen.main.bounds.width - 12 - 16, UIScreen.main.bounds.width - 12 - 16)
+    var size: CGSize = CGSize(width: 300, height: 300)
     var contentMode: UIView.ContentMode = .scaleAspectFill
 }
 
@@ -373,7 +373,7 @@ public struct MarkdownStyle: Style {
             linkUnderlineStyle: .single,
             blockquoteStyle: DefaultBlockquoteStyle(),
             tableStyle: DefaultTableStyle(),
-            maxContainerWidth: UIScreen.main.bounds.width - 40,
+            maxContainerWidth: 600,
             imageStyle: DefaultImageStyle()
         )
     }

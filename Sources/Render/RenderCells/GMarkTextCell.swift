@@ -18,6 +18,10 @@ class GMarkTextCell: UICollectionViewCell, MPILabelDelegate, ChunkCellConfigurab
         let label = MPILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.numberOfLines = 0
+        // MPITextKit owns the selection view, long-press/double-tap gestures,
+        // handles and the system Copy action. Selection is therefore confined
+        // to this label (and consequently to this single text chunk).
+        label.isSelectable = true
         return label
     }()
 
@@ -39,11 +43,17 @@ class GMarkTextCell: UICollectionViewCell, MPILabelDelegate, ChunkCellConfigurab
     }
 
     func configure(with chunk: GMarkChunk) {
+        // A reused cell must never expose the previous chunk's selection/menu.
+        label.hideMenu()
+        label.selectedRange = NSRange(location: NSNotFound, length: 0)
+        // MPILabel's copy: implementation reads attributedText, even when the
+        // visual layout is supplied through textRenderer.
+        label.attributedText = chunk.attributedText
         if let textRender = chunk.textRender {
             label.textRenderer = textRender
             return
         }
-        label.attributedText = chunk.attributedText
+        label.textRenderer = nil
     }
 
     // MARK: - MPILabelDelegate
@@ -55,8 +65,20 @@ class GMarkTextCell: UICollectionViewCell, MPILabelDelegate, ChunkCellConfigurab
             if let imageURL = link.value as? URL {
                 handlerChain?.handle(.imageClicked(imageURL))
             }
+        } else if let linkURL = link.value as? URL {
+            // MPITextKit links are stored as `.MPILink` when the block
+            // renderer is active; `.link` is only the fallback representation.
+            handlerChain?.handle(.linkClicked(linkURL))
         } else if let linkURL = attributed.attribute(.link, at: 0, effectiveRange: nil) as? URL {
             handlerChain?.handle(.linkClicked(linkURL))
         }
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        label.hideMenu()
+        label.selectedRange = NSRange(location: NSNotFound, length: 0)
+        label.textRenderer = nil
+        label.attributedText = nil
     }
 }

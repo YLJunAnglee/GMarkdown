@@ -23,7 +23,12 @@ public final class GMarkLRUCache<Key: Hashable, Value> {
     private let notificationCenter: NotificationCenter
 
     /// The current total cost of values in the cache
-    public private(set) var totalCost: Int = 0
+    private var totalCostValue: Int = 0
+    public var totalCost: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return totalCostValue
+    }
 
     /// The maximum total cost permitted
     public var totalCostLimit: Int {
@@ -65,12 +70,16 @@ public final class GMarkLRUCache<Key: Hashable, Value> {
 public extension GMarkLRUCache {
     /// The number of values currently stored in the cache
     var count: Int {
-        values.count
+        lock.lock()
+        defer { lock.unlock() }
+        return values.count
     }
 
     /// Is the cache empty?
     var isEmpty: Bool {
-        values.isEmpty
+        lock.lock()
+        defer { lock.unlock() }
+        return values.isEmpty
     }
 
     /// Returns all keys in the cache from oldest to newest
@@ -105,23 +114,24 @@ public extension GMarkLRUCache {
             removeValue(forKey: key)
             return
         }
+        let normalizedCost = max(0, cost)
         lock.lock()
         if let container = values[key] {
             container.value = value
-            totalCost -= container.cost
-            container.cost = cost
+            totalCostValue -= container.cost
+            container.cost = normalizedCost
             remove(container)
             append(container)
         } else {
             let container = Container(
                 value: value,
-                cost: cost,
+                cost: normalizedCost,
                 key: key
             )
             values[key] = container
             append(container)
         }
-        totalCost += cost
+        totalCostValue += normalizedCost
         lock.unlock()
         clean()
     }
@@ -134,7 +144,7 @@ public extension GMarkLRUCache {
             return nil
         }
         remove(container)
-        totalCost -= container.cost
+        totalCostValue -= container.cost
         return container.value
     }
 
@@ -156,7 +166,7 @@ public extension GMarkLRUCache {
         values.removeAll()
         head = nil
         tail = nil
-        totalCost = 0
+        totalCostValue = 0
         lock.unlock()
     }
 }
@@ -204,12 +214,12 @@ private extension GMarkLRUCache {
     func clean() {
         lock.lock()
         defer { lock.unlock() }
-        while totalCost > totalCostLimit || count > countLimit,
+        while totalCostValue > totalCostLimit || values.count > countLimit,
               let container = head
         {
             remove(container)
             values.removeValue(forKey: container.key)
-            totalCost -= container.cost
+            totalCostValue -= container.cost
         }
     }
 }

@@ -8,6 +8,7 @@
 import Foundation
 
 open class GMarkCodeHighlight: NSObject {
+    private let lock = NSLock()
     override init() {
         highlightr?.setTheme(to: "github-gist")
     }
@@ -24,10 +25,14 @@ open class GMarkCodeHighlight: NSObject {
     }
 
     public func setTheme(to name: String) {
+        lock.lock()
+        defer { lock.unlock() }
         highlightr?.setTheme(to: name)
     }
     
     public func generateAttributeText(_ string: String, language: String) -> NSAttributedString? {
+        lock.lock()
+        defer { lock.unlock() }
         let highlightedText = highlightr?.highlight(string, as: language, fastRender: true)
         return highlightedText
     }

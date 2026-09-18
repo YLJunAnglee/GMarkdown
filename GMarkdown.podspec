@@ -14,8 +14,7 @@ Pod::Spec.new do |s|
                        - Code Blocks with syntax highlighting
                        - Tables
                        - LaTeX Math Formulas
-                       - Mermaid Diagrams
-                       - HTML Preview
+                       - Restricted, display-only HTML
                        DESC
 
   s.homepage         = 'https://github.com/GIKICoder/GMarkdown.git'
@@ -23,7 +22,7 @@ Pod::Spec.new do |s|
   s.author           = { 'GIKICoder' => 'giki.biu@gmail.com' }
   s.source           = { :git => 'https://github.com/GIKICoder/GMarkdown.git', :tag => s.version.to_s }
 
-  s.ios.deployment_target = '13.0'
+  s.ios.deployment_target = '14.0'
   s.swift_version = '5.0'
 
   s.source_files = 'Sources/**/*.swift'
@@ -40,7 +39,7 @@ Pod::Spec.new do |s|
   s.dependency 'MPITextKit'
   
   # Frameworks
-  s.frameworks = 'UIKit', 'Foundation', 'WebKit', 'JavaScriptCore', 'Photos'
+  s.frameworks = 'UIKit', 'Foundation', 'JavaScriptCore'
   
   # Additional settings
   s.requires_arc = true

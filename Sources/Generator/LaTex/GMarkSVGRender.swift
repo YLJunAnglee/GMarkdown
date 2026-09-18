@@ -273,7 +273,7 @@ class GMarkSVGRender {
     
     // MARK: - Helper Methods
     private static func supportsVectorSVGImage() -> Bool {
-        if #available(iOS 13.0, *) {
+        if #available(iOS 14.0, *) {
             return imageWithCGSVGDocumentSEL != nil && UIImage.responds(to: imageWithCGSVGDocumentSEL!)
         }
         return false
@@ -370,7 +370,7 @@ extension GMarkSVGRender {
     /// LaTeX SVG 渲染配置
     struct LaTeXRenderOptions {
         var baseFontSize: CGFloat = 16.0        // 基础字体大小
-        var maxWidth: CGFloat = UIScreen.main.bounds.width - 32  // 最大宽度（屏幕宽度-边距）
+        var maxWidth: CGFloat = 600  // Host container width is applied by the chunk layout pass.
         var minWidth: CGFloat = 20             // 最小宽度
         var scaleFactor: CGFloat = 6.0          // 额外缩放因子
         var allowHorizontalScroll: Bool = true  // 是否允许水平滚动

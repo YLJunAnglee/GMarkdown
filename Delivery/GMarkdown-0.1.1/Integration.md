@@ -14,7 +14,7 @@
 
 ## 构建前检查
 
-1. 将 `Sources/`、`Dependencies/` 和 `Resources/` 加入宿主 target，并确认资源 target membership。
+1. 将 `Sources/`、`Dependencies/` 加入宿主 target，并确认 `Sources/Assets/` 的资源 target membership。
 2. 检查 `Licenses/` 是否包含 swift-markdown、MPITextKit、SwiftMath、MathJaxSwift、Highlightr 及其传递依赖许可证。
 3. 编译 Debug 和 Release；确认最低 iOS 14，且没有把 Mermaid/HTML WebView 资源带入首发包。
 4. 使用 `Examples/MinimalHost/` 的最小控制器完成干净构建/启动，再运行固定回归集。

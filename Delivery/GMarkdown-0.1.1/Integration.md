@@ -14,6 +14,8 @@
 
 ## 构建前检查
 
+源码文件夹接入遇到模块、C 头文件、资源 bundle 或 Xcode 缓存错误时，先参阅[源码接入排错手册](SourceIntegrationTroubleshooting.md)，再按本文的依赖结构继续配置。
+
 1. 建立独立的 `GMarkdown` framework target，将 `Sources/` 和 `Sources/Assets/` 加入其中；不要把组件源码直接混入业务 App target。
 2. 将 `Dependencies/` 中的 `Markdown`（含 `swift-cmark` C target）、`MPITextKit`、`SwiftMath`、`MathJaxSwift` 分别建立为可导入模块，并让 `GMarkdown` target 显式依赖它们。
 3. 检查 `Licenses/` 是否包含 swift-markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 和 highlight.js 许可证。

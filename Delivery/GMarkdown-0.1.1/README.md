@@ -7,6 +7,7 @@
 ## 目录组成
 
 - `Integration.md`：接入、升级、回退和能力边界。
+- `DemoAcceptanceChecklist.md`：Demo 能力验收、稳定版本冻结和证据记录清单。
 - `SourceManifest.md`：应随版本交付的源码、依赖、资源和许可证清单。
 - `CHANGELOG.md`：本候选版本变更与已知限制。
 - `Checksums.sha256`：冻结候选提交后生成；当前为空模板，不能作为完整性证明。

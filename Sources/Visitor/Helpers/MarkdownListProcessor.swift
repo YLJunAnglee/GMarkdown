@@ -62,24 +62,25 @@ public struct MarkdownListProcessor {
         let listItemAttributedString = (visitor.visit(listItem) as AnyObject).mutableCopy() as! NSMutableAttributedString
         
         let isRTL = TextDirectionDetector.isRTLLanguage(text: listItemAttributedString.string)
+        let number = Int(orderedList.startIndex) > 0
+            ? Int(orderedList.startIndex) + index
+            : index + 1
         
         let listItemAttributes = createListItemAttributes(
             depth: orderedList.listDepth,
             isRTL: isRTL,
-            isOrdered: true,
-            highestNumber: orderedList.childCount,
+            marker: "\(number).",
             style: style
         )
         
         let numberPrefix = createOrderedListPrefix(
-            index: index,
-            startIndex: orderedList.startIndex,
-            isRTL: isRTL,
+            number: number,
             attributes: listItemAttributes,
             style: style
         )
         
         listItemAttributedString.insert(numberPrefix, at: 0)
+        applyListParagraphStyle(to: listItemAttributedString, attributes: listItemAttributes)
         return listItemAttributedString
     }
     
@@ -95,18 +96,17 @@ public struct MarkdownListProcessor {
         let listItemAttributes = createListItemAttributes(
             depth: depth,
             isRTL: isRTL,
-            isOrdered: false,
-            bulletSymbol: bulletSymbol,
+            marker: bulletSymbol,
             style: style
         )
         
         let bulletPrefix = createBulletPrefix(
             symbol: bulletSymbol,
-            isRTL: isRTL,
             attributes: listItemAttributes
         )
         
         listItemAttributedString.insert(bulletPrefix, at: 0)
+        applyListParagraphStyle(to: listItemAttributedString, attributes: listItemAttributes)
         return listItemAttributedString
     }
     
@@ -125,9 +125,7 @@ public struct MarkdownListProcessor {
     
     private static func createListItemAttributes(depth: Int,
                                                isRTL: Bool,
-                                               isOrdered: Bool,
-                                               highestNumber: Int = 0,
-                                               bulletSymbol: String = "•",
+                                               marker: String,
                                                style: Style) -> [NSAttributedString.Key: Any] {
         var attributes: [NSAttributedString.Key: Any] = [:]
         let paragraphStyle = NSMutableParagraphStyle()
@@ -142,25 +140,17 @@ public struct MarkdownListProcessor {
         let leftMarginOffset = baseLeftMargin + (20.0 * CGFloat(depth))
         let spacingFromIndex: CGFloat = 8.0
         
-        let markerWidth: CGFloat
-        if isOrdered {
-            let numeralFont = style.listStyle.bulletFont
-            markerWidth = ceil(NSAttributedString(string: "\(highestNumber).",
-                                                 attributes: [.font: numeralFont]).size().width)
-        } else {
-            markerWidth = ceil(NSAttributedString(string: bulletSymbol,
-                                                 attributes: [.font: font]).size().width)
-        }
+        // The marker must follow the same Dynamic Type scale as the list body.
+        // Using the fixed-size bullet font here makes the old tab-stop layout
+        // unstable when the body font becomes large.
+        let markerFont = font
+        let markerWidth = ceil(NSAttributedString(string: marker,
+                                                   attributes: [.font: markerFont]).size().width)
         
-        let firstTabLocation = leftMarginOffset + markerWidth
-        let secondTabLocation = firstTabLocation + spacingFromIndex
-        
-        paragraphStyle.tabStops = [
-            NSTextTab(textAlignment: .right, location: firstTabLocation),
-            NSTextTab(textAlignment: .left, location: secondTabLocation),
-        ]
-        
-        paragraphStyle.headIndent = secondTabLocation
+        let markerEndX = leftMarginOffset + markerWidth
+        let contentStartX = markerEndX + spacingFromIndex
+        paragraphStyle.firstLineHeadIndent = leftMarginOffset
+        paragraphStyle.headIndent = contentStartX
         
         attributes[.paragraphStyle] = paragraphStyle
         attributes[.font] = font
@@ -169,25 +159,28 @@ public struct MarkdownListProcessor {
         
         return attributes
     }
+
+    private static func applyListParagraphStyle(to attributedString: NSMutableAttributedString,
+                                                attributes: [NSAttributedString.Key: Any]) {
+        guard attributedString.length > 0,
+              let paragraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle else { return }
+        attributedString.addAttribute(.paragraphStyle,
+                                      value: paragraphStyle,
+                                      range: NSRange(location: 0, length: attributedString.length))
+    }
     
-    private static func createOrderedListPrefix(index: Int,
-                                              startIndex: UInt,
-                                              isRTL: Bool,
+    private static func createOrderedListPrefix(number: Int,
                                               attributes: [NSAttributedString.Key: Any],
                                               style: Style) -> NSAttributedString {
         var numberAttributes = attributes
-        numberAttributes[.font] = style.listStyle.bulletFont
+        numberAttributes[.font] = attributes[.font] ?? style.fonts.current
         numberAttributes[.foregroundColor] = style.colors.current
-        
-        let taps = isRTL ? " " : "\t"
-        let number = Int(startIndex) > 0 ? Int(startIndex) + index : index + 1
-        return NSAttributedString(string: "\t\(number).\(taps)", attributes: numberAttributes)
+
+        return NSAttributedString(string: "\(number). ", attributes: numberAttributes)
     }
     
     private static func createBulletPrefix(symbol: String,
-                                         isRTL: Bool,
                                          attributes: [NSAttributedString.Key: Any]) -> NSAttributedString {
-        let taps = isRTL ? " " : "\t"
-        return NSAttributedString(string: "\t\(symbol)\(taps)", attributes: attributes)
+        return NSAttributedString(string: "\(symbol) ", attributes: attributes)
     }
 }

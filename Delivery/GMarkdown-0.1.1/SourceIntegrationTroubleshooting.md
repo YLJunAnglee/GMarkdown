@@ -197,6 +197,7 @@ import UIKit
 | `FOUNDATION_EXPORT` 不可用 | MPITextKit 公共头显式导入 Foundation |
 | 模块验证器阻断旧源码 | 源码接入 target 关闭 library evolution/module verifier |
 | Xcode 缓存旧模块配置 | 使用全新 DerivedData clean build |
+| Dynamic Type 放大后有序列表编号与正文垂直分离 | 列表处理改用动态字体、首行缩进和悬挂缩进，移除固定 TabStop |
 
 ## 交付前检查表
 

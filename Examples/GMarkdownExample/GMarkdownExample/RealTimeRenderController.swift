@@ -16,17 +16,18 @@ class RealTimeRenderController: UIViewController {
     private let streamButton = UIButton(type: .system)
     private let containerView = UIView()
     private var currentMarkdownFile = "markdown"
+    private var loadGeneration = 0
     private var displayLink: CADisplayLink?
     private var currentIndex = 0
     private var currentContent = ""
     
-    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5","markdownLatex"]
+    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5","markdownLatex", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         Task {
-            await loadMarkdown(fileName: currentMarkdownFile)
+            await loadMarkdown(fileName: currentMarkdownFile, generation: loadGeneration)
         }
     }
     
@@ -101,9 +102,13 @@ class RealTimeRenderController: UIViewController {
         
         for file in markdownFiles {
             let action = UIAlertAction(title: file, style: .default) { [weak self] _ in
-                self?.currentMarkdownFile = file
+                guard let self else { return }
+                self.stopDisplayLink()
+                self.loadGeneration += 1
+                let generation = self.loadGeneration
+                self.currentMarkdownFile = file
                 Task { [weak self] in
-                    await self?.loadMarkdown(fileName: file)
+                    await self?.loadMarkdown(fileName: file, generation: generation)
                 }
             }
             alert.addAction(action)
@@ -163,27 +168,30 @@ class RealTimeRenderController: UIViewController {
         let endIndex = min(currentIndex + randomCharCount, currentContent.count)
         let partialContent = String(currentContent.prefix(endIndex))
         currentIndex = endIndex
+        let generation = loadGeneration
         
         Task { [weak self] in
              guard let self = self else { return }
              let chunks = await parseMarkdown(partialContent)
              await MainActor.run {
+                 guard self.loadGeneration == generation else { return }
                  self.markdownView.updateMarkdown(chunks)
              }
          }
     }
     
-    private func loadMarkdown(fileName: String) async {
+    private func loadMarkdown(fileName: String, generation: Int) async {
         guard let filepath = Bundle.main.path(forResource: fileName, ofType: nil),
               let filecontents = try? String(contentsOfFile: filepath, encoding: .utf8) else {
             return
         }
         
         let chunks = await parseMarkdown(filecontents)
-        
+
         await MainActor.run { [weak self] in
-            self?.markdownView.updateMarkdown(chunks)
-            self?.title = fileName
+            guard let self, self.loadGeneration == generation else { return }
+            self.markdownView.updateMarkdown(chunks)
+            self.title = fileName
         }
     }
     

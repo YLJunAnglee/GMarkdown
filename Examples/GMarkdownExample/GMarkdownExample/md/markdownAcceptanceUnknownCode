@@ -1,0 +1,14 @@
+# 未知代码语言降级验收
+
+前置文本应保留。
+
+```unknown-language
+some unsupported code
+<value> & should remain readable
+```
+
+```
+code without a language tag
+```
+
+后置文本应保留。

@@ -1,0 +1,7 @@
+# 缺失资源降级验收
+
+前置文本应保留。
+
+![missing image](https://invalid.example.invalid/gmarkdown-missing-image.png)
+
+后置文本应保留，页面不应因为图片加载失败而崩溃。

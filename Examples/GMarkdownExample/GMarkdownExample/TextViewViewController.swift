@@ -14,11 +14,12 @@ class TextViewViewController: UIViewController {
     private let menuButton = UIButton(type: .system)
     private let streamButton = UIButton(type: .system)
     private var currentMarkdownFile = "markdown"
+    private var loadGeneration = 0
     private var displayLink: CADisplayLink?
     private var currentIndex = 0
     private var currentContent = ""
     
-    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5","markdownLatex","markdownTemp"]
+    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5","markdownLatex","markdownTemp", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -78,7 +79,7 @@ class TextViewViewController: UIViewController {
     @MainActor
     private func setupMarkdown() {
         Task {
-            await loadMarkdown(fileName: currentMarkdownFile)
+            await loadMarkdown(fileName: currentMarkdownFile, generation: loadGeneration)
         }
     }
     
@@ -87,9 +88,13 @@ class TextViewViewController: UIViewController {
         
         for file in markdownFiles {
             let action = UIAlertAction(title: file, style: .default) { [weak self] _ in
-                self?.currentMarkdownFile = file
+                guard let self else { return }
+                self.stopDisplayLink()
+                self.loadGeneration += 1
+                let generation = self.loadGeneration
+                self.currentMarkdownFile = file
                 Task { [weak self] in
-                    await self?.loadMarkdown(fileName: file)
+                    await self?.loadMarkdown(fileName: file, generation: generation)
                 }
             }
             alert.addAction(action)
@@ -145,24 +150,26 @@ class TextViewViewController: UIViewController {
         let endIndex = min(currentIndex + randomCharCount, currentContent.count)
         let partialContent = String(currentContent.prefix(endIndex))
         currentIndex = endIndex
+        let generation = loadGeneration
         
         Task { [weak self] in
             guard let self = self else { return }
-            await self.renderMarkdown(partialContent)
+            await self.renderMarkdown(partialContent, generation: generation)
         }
     }
     
-    private func loadMarkdown(fileName: String) async {
+    private func loadMarkdown(fileName: String, generation: Int) async {
         guard let filepath = Bundle.main.path(forResource: fileName, ofType: nil),
               let filecontents = try? String(contentsOfFile: filepath, encoding: .utf8) else {
             return
         }
         
-        await renderMarkdown(filecontents)
-        self.title = fileName
+        await renderMarkdown(filecontents, generation: generation)
+        guard loadGeneration == generation else { return }
+        title = fileName
     }
-    
-    private func renderMarkdown(_ content: String) async {
+
+    private func renderMarkdown(_ content: String, generation: Int? = nil) async {
         let document = GMarkParser().parseMarkdown(from: content)
         var style = MarkdownStyle.defaultStyle()
         style.useMPTextKit = false
@@ -174,6 +181,7 @@ class TextViewViewController: UIViewController {
         let height = attributedText.height(withWidth: style.maxContainerWidth)
         print("Markdown content height: \(height)")
         await MainActor.run {
+            if let generation, self.loadGeneration != generation { return }
             self.markdownView.attributedText = attributedText
         }
     }

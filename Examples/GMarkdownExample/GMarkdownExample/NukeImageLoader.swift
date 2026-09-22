@@ -12,6 +12,31 @@ import NukeExtensions
 import GMarkdown
 
 class NukeImageLoader: ImageLoader {
+    private static let longImageFixtureSource = "gmarkdown-demo://acceptance-long-image"
+
+    private static let longImageFixture: UIImage = {
+        let size = CGSize(width: 600, height: 2_400)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { context in
+            UIColor.systemIndigo.withAlphaComponent(0.12).setFill()
+            context.cgContext.fill(CGRect(origin: .zero, size: size))
+
+            for section in 0 ..< 12 {
+                let y = CGFloat(section) * 200
+                UIColor.systemBlue.withAlphaComponent(section.isMultiple(of: 2) ? 0.22 : 0.08).setFill()
+                context.cgContext.fill(CGRect(x: 0, y: y, width: size.width, height: 200))
+                let text = "Long image acceptance · section \(section + 1)"
+                text.draw(at: CGPoint(x: 36, y: y + 82), withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 30, weight: .semibold),
+                    .foregroundColor: UIColor.label,
+                ])
+            }
+        }
+    }()
+
     @MainActor func loadImage(from source: String, into imageView: UIImageView) {
         loadImage(from: source, into: imageView, fallbackText: nil)
     }
@@ -19,6 +44,10 @@ class NukeImageLoader: ImageLoader {
     @MainActor func loadImage(from source: String, into imageView: UIImageView, fallbackText: String?) {
         imageView.backgroundColor = .clear
         imageView.viewWithTag(947_001)?.removeFromSuperview()
+        if source == Self.longImageFixtureSource {
+            imageView.image = Self.longImageFixture
+            return
+        }
         guard let url = URL(string: source) else {
             showFallback(text: fallbackText, in: imageView)
             return
@@ -63,6 +92,9 @@ class NukeImageLoader: ImageLoader {
     }
     
     func download(from source: String) async -> UIImage? {
+        if source == Self.longImageFixtureSource {
+            return Self.longImageFixture
+        }
         do {
             let request = ImageRequest(
                 url: URL(string: source),

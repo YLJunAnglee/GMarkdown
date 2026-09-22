@@ -79,6 +79,8 @@ Dynamic Type 缩小验收结果：系统字体调小后，`markdownv2` 和 `mark
 
 交互验收结果：普通正文文本可选择和复制，Markdown 链接回调正常，代码块 Copy 内容完整。D-07 通过。
 
+代码语言验收结果：在 `markdownAcceptanceCodeLanguages` 中验证 Swift、C、JSON 三种代码块，语法高亮、布局和 Copy 均正常。C-02 通过。
+
 尚未完成：iPad 以外的兼容性补测、真机 Release 性能和内存、iOS 15 最低版本核心路径验证。
 
 ## A. Markdown 内容能力
@@ -112,7 +114,7 @@ Dynamic Type 缩小验收结果：系统字体调小后，`markdownv2` 和 `mark
 | 编号 | 验收项 | 结果 | 备注 |
 | --- | --- | --- | --- |
 | C-01 | fenced code block 基础显示 | 已验证当前样例 | 已覆盖横向滚动和 Copy |
-| C-02 | Swift、C、Python、JSON 等语言高亮 | 已验证部分语言 | 当前覆盖 Python、JavaScript、HTML；Swift/C/JSON 待补 |
+| C-02 | Swift、C、Python、JSON 等语言高亮 | 通过 | 2026-09-22：Python、JavaScript、HTML、Swift、C、JSON 均已验证高亮和 Copy 正常 |
 | C-03 | 未知语言和无语言标记 | 通过 | 2026-09-21：未知语言和无语言代码块均正常显示为可读代码文本 |
 | C-04 | 代码高亮资源从 framework bundle 加载 | 通过 | 2026-09-22：代码块首次进入和重复进入均正常高亮，快速滚动和 Copy 正常；Release 包含 `highlight.min.js` |
 | C-05 | 资源缺失时的降级行为 | 通过 | 2026-09-21：缺失图片显示占位内容，前后文本保留，无崩溃 |

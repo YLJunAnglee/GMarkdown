@@ -17,7 +17,7 @@ class MarkdownRenderController: UIViewController {
     private var currentMarkdownFile = "markdown"
     private var loadGeneration = 0
     
-    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5", "markdownLatex", "markdownAcceptanceCodeLanguages", "markdownAcceptanceLongImage", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
+    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5", "markdownLatex", "markdownAcceptanceCodeLanguages", "markdownAcceptanceLongImage", "markdownAcceptanceBoundaries", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
     
     override func viewDidLoad() {
         super.viewDidLoad()

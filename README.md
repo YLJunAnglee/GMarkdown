@@ -4,7 +4,7 @@ GMarkdown is a native iOS Markdown renderer built on swift-markdown, MPITextKit,
 
 ## Current integration contract
 
-- Minimum deployment target: iOS 14.0.
+- Minimum deployment target: iOS 15.0.
 - Primary supported renderer: `GMarkdownMultiView` block rendering.
 - iPhone portrait and iPad portrait/landscape/split view are supported; iPhone landscape is not a first-release target.
 - Mermaid is displayed as code only; it is not executed or previewed.

@@ -9,7 +9,7 @@ import Foundation
 import UIKit
 import MPITextKit
 
-class GMarkLatexCell: UICollectionViewCell, ChunkCellConfigurable {
+class GMarkLatexCell: UICollectionViewCell, ChunkCellConfigurable, UIGestureRecognizerDelegate {
     static let reuseIdentifier = "GMarkLatexCell"
     private let scrollView: UIScrollView = {
         let sv = UIScrollView()
@@ -24,6 +24,12 @@ class GMarkLatexCell: UICollectionViewCell, ChunkCellConfigurable {
 
     private var sourceImage: UIImage?
     private var imageTopPadding: CGFloat = 0
+    private lazy var horizontalPanGesture: UIPanGestureRecognizer = {
+        let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleHorizontalPan(_:)))
+        gesture.delegate = self
+        gesture.cancelsTouchesInView = false
+        return gesture
+    }()
     
     
     override public init(frame: CGRect) {
@@ -62,10 +68,41 @@ class GMarkLatexCell: UICollectionViewCell, ChunkCellConfigurable {
     func setupUI() {
         contentView.addSubview(scrollView)
         scrollView.addSubview(latexImageView)
+        contentView.addGestureRecognizer(horizontalPanGesture)
+        scrollView.alwaysBounceHorizontal = false
+        scrollView.showsHorizontalScrollIndicator = true
+        scrollView.isDirectionalLockEnabled = true
         scrollView.frame = contentView.bounds
+    }
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === horizontalPanGesture,
+              let panGesture = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        let velocity = panGesture.velocity(in: contentView)
+        return abs(velocity.x) > abs(velocity.y) && scrollView.contentSize.width > scrollView.bounds.width
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === horizontalPanGesture else { return false }
+        return otherGestureRecognizer.view is UIScrollView
+    }
+
+    @objc private func handleHorizontalPan(_ gestureRecognizer: UIPanGestureRecognizer) {
+        let translation = gestureRecognizer.translation(in: contentView)
+        guard translation.x != 0 else { return }
+        let minimumOffset = -scrollView.adjustedContentInset.left
+        let maximumOffset = max(
+            minimumOffset,
+            scrollView.contentSize.width - scrollView.bounds.width + scrollView.adjustedContentInset.right
+        )
+        let nextX = min(max(scrollView.contentOffset.x - translation.x, minimumOffset), maximumOffset)
+        scrollView.setContentOffset(CGPoint(x: nextX, y: scrollView.contentOffset.y), animated: false)
+        gestureRecognizer.setTranslation(.zero, in: contentView)
     }
     
     func configure(with chunk: GMarkChunk) {
+        scrollView.setContentOffset(.zero, animated: false)
         if let image = chunk.latexImage {
             sourceImage = image
             imageTopPadding = chunk.style.codeBlockStyle.padding.top

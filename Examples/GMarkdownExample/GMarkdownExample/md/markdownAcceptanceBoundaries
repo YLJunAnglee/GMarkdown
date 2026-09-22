@@ -1,0 +1,34 @@
+# Markdown 边界与 Mermaid 验收
+
+这是第一行。  
+这是使用两个空格换行后的第二行。
+
+
+## 很长的二级标题：用于确认在窄屏与深色模式下标题可以自然换行而不截断
+
+正文混排：**粗体**、*斜体*、~~删除线~~、`inline_code(value: 42)`，以及 **粗体中的 *斜体* 和 `code`**。
+
+> 第一层引用，包含 **粗体** 与 `code`。
+>
+>> 第二层引用，包含 [链接文本](https://example.com/markdown-boundary) 和自动链接 <https://example.com/auto-link>。
+
+转义字符应显示为普通文字：\*不是斜体\*，\[不是链接\]，\`不是代码\`，\\ 是一个反斜杠。
+
+1. 有序列表第一项，包含一段会自然换行的较长文本，用于确认第二行和后续行与正文对齐。
+   - 嵌套无序列表。
+   - 另一条嵌套项。
+2. 有序列表第二项。
+
+---
+
+## Mermaid 源码
+
+下面只展示 Mermaid 源码，不要求图形预览；点 Copy 后应复制完整内容。
+
+```mermaid
+flowchart LR
+    Input[Markdown] --> Render[GMarkdown]
+    Render --> Output[Native View]
+```
+
+后置文本应保留。

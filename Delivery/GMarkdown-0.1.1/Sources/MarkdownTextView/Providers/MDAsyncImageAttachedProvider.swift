@@ -10,14 +10,31 @@ import Markdown
 
 class MDAsyncImageAttachedProvider: MarkdownAttachedViewProvider {
 
-    let url:String
+    private final class LayoutAwareImageView: UIImageView {
+        var onImageChanged: (() -> Void)?
+
+        override var image: UIImage? {
+            didSet { onImageChanged?() }
+        }
+    }
+
+    let url: String
     
-    lazy var imageView = UIImageView()
+    private lazy var imageView: LayoutAwareImageView = {
+        let imageView = LayoutAwareImageView()
+        imageView.contentMode = .scaleAspectFit
+        imageView.onImageChanged = { [weak self] in
+            self?.invalidateAttachmentLayout()
+        }
+        return imageView
+    }()
     
     var markup: Image?
     var style:Style?
     var imageloader: ImageLoader?
     let fallbackText: String?
+    private weak var attachment: MarkdownAttachment?
+    private weak var behavior: MarkdownAttachingBehavior?
     
     init(markup: Image, style:Style, imageloader: ImageLoader? = nil) {
         self.url = markup.source ?? ""
@@ -28,6 +45,8 @@ class MDAsyncImageAttachedProvider: MarkdownAttachedViewProvider {
     }
     
     func instantiateView(for attachment: MarkdownAttachment, in behavior: MarkdownAttachingBehavior) -> UIView {
+        self.attachment = attachment
+        self.behavior = behavior
         if let imageloader {
             imageloader.loadImage(from: url, into: self.imageView, fallbackText: fallbackText)
         } else {
@@ -40,7 +59,38 @@ class MDAsyncImageAttachedProvider: MarkdownAttachedViewProvider {
         guard let style = self.style else {
             return CGRect(origin: .zero, size: CGSize(width: 100, height: 100))
         }
-        return CGRect(origin: .zero, size: CGSize(width: style.maxContainerWidth, height: style.maxContainerWidth))
+        let horizontalPadding = (textContainer?.lineFragmentPadding ?? 0) * 2
+        let widths = [
+            style.maxContainerWidth,
+            (textContainer?.size.width ?? 0) - horizontalPadding,
+            lineFrag.width - horizontalPadding,
+        ].filter { $0.isFinite && $0 > 0 }
+        let width = widths.min() ?? style.maxContainerWidth
+
+        guard let image = imageView.image, image.size.width > 0, image.size.height > 0 else {
+            return CGRect(origin: .zero, size: CGSize(width: width, height: width))
+        }
+        return CGRect(origin: .zero, size: CGSize(width: width, height: width * image.size.height / image.size.width))
+    }
+
+    private func invalidateAttachmentLayout() {
+        guard let attachment, let behavior, let textView = behavior.textView else { return }
+
+        DispatchQueue.main.async {
+            let fullRange = NSRange(location: 0, length: textView.textStorage.length)
+            var attachmentRange: NSRange?
+            textView.textStorage.enumerateAttribute(.attachment, in: fullRange) { value, range, stop in
+                if let candidate = value as? MarkdownAttachment, candidate === attachment {
+                    attachmentRange = range
+                    stop.pointee = true
+                }
+            }
+            guard let attachmentRange else { return }
+            textView.layoutManager.invalidateLayout(forCharacterRange: attachmentRange, actualCharacterRange: nil)
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            textView.setNeedsLayout()
+            behavior.layoutAttachedSubviews()
+        }
     }
     
     func loadImageFromUrl() {

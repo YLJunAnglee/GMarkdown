@@ -168,7 +168,13 @@ public struct MarkdownStyleProcessor {
         
         let attachment = MPITextAttachment()
         attachment.content = imageView
-        attachment.contentSize = style.imageStyle.size
+        if let image = imageView.image, image.size.width > 0, image.size.height > 0 {
+            let width = min(style.imageStyle.size.width, style.maxContainerWidth)
+            attachment.contentSize = CGSize(width: width, height: width * image.size.height / image.size.width)
+        } else {
+            attachment.contentSize = style.imageStyle.size
+        }
+        attachment.contentMode = .scaleAspectFit
         attachment.contentInsets = style.imageStyle.padding
         attachment.verticalAligment = .center
         

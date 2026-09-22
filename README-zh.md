@@ -4,7 +4,7 @@ GMarkdown 是基于 swift-markdown、MPITextKit、SwiftMath 和 Highlightr 的�
 
 ## 当前接入约定
 
-- 最低系统版本：iOS 14.0。
+- 最低系统版本：iOS 15.0。
 - 首发主路径：`GMarkdownMultiView` 分块渲染。
 - 支持 iPhone 竖屏，以及 iPad 竖屏、横屏和分屏；iPhone 横屏不属于首发范围。
 - Mermaid 只展示代码，不执行、不预览。

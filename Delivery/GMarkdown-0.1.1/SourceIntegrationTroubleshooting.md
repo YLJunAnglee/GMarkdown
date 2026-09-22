@@ -1,6 +1,6 @@
 # 源码文件夹接入排错手册
 
-本文记录将 GMarkdown 及其依赖以源码文件夹方式加入 Xcode 工程时，最容易出现的构建问题、根因和处理方式。适用于 iOS 14+、Swift 5、独立 framework target 的接入方式。
+本文记录将 GMarkdown 及其依赖以源码文件夹方式加入 Xcode 工程时，最容易出现的构建问题、根因和处理方式。适用于 iOS 15+、Swift 5、独立 framework target 的接入方式。
 
 ## 推荐的 target 结构
 

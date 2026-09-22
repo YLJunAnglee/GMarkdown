@@ -71,6 +71,8 @@ iPad 适配结果：在 iPad Air 13-inch (M4)、iPadOS 27.0 上验证竖屏、�
 
 异步加载验收结果：在公式和缺失图片内容加载、降级及快速滚动期间，未发现布局跳动、重复刷新、滚动位置异常或崩溃。D-08 通过。
 
+代码高亮验收结果：在 `markdownv5` 中验证 Python、JavaScript、HTML 等代码块，首次进入和重复进入均能正常高亮，快速滚动和 Copy 正常。C-04 通过。
+
 尚未完成：代码高亮资源运行时加载验证、iPad 以外的兼容性补测、真机 Release 性能和内存、iOS 15 最低版本核心路径验证。
 
 ## A. Markdown 内容能力
@@ -106,7 +108,7 @@ iPad 适配结果：在 iPad Air 13-inch (M4)、iPadOS 27.0 上验证竖屏、�
 | C-01 | fenced code block 基础显示 | 已验证当前样例 | 已覆盖横向滚动和 Copy |
 | C-02 | Swift、C、Python、JSON 等语言高亮 | 已验证部分语言 | 当前覆盖 Python、JavaScript、HTML；Swift/C/JSON 待补 |
 | C-03 | 未知语言和无语言标记 | 通过 | 2026-09-21：未知语言和无语言代码块均正常显示为可读代码文本 |
-| C-04 | 代码高亮资源从 framework bundle 加载 | 待验收 | Release 包已确认包含 `highlight.min.js`；运行时加载仍待验收 |
+| C-04 | 代码高亮资源从 framework bundle 加载 | 通过 | 2026-09-22：代码块首次进入和重复进入均正常高亮，快速滚动和 Copy 正常；Release 包含 `highlight.min.js` |
 | C-05 | 资源缺失时的降级行为 | 通过 | 2026-09-21：缺失图片显示占位内容，前后文本保留，无崩溃 |
 
 ## D. 显示与交互适配

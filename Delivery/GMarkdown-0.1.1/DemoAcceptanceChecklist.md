@@ -73,6 +73,8 @@ iPad 适配结果：在 iPad Air 13-inch (M4)、iPadOS 27.0 上验证竖屏、�
 
 代码高亮验收结果：在 `markdownv5` 中验证 Python、JavaScript、HTML 等代码块，首次进入和重复进入均能正常高亮，快速滚动和 Copy 正常。C-04 通过。
 
+许可证核对结果：对照 `SourceManifest.md`，swift-markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 和 highlight.js 均有对应许可证文件，GMarkdown 自身许可证也已包含。F-05 通过。
+
 尚未完成：代码高亮资源运行时加载验证、iPad 以外的兼容性补测、真机 Release 性能和内存、iOS 15 最低版本核心路径验证。
 
 ## A. Markdown 内容能力
@@ -146,7 +148,7 @@ iPad 适配结果：在 iPad Air 13-inch (M4)、iPadOS 27.0 上验证竖屏、�
 | F-02 | 依赖顺序和 Target Dependencies 正确 | 已验证基础能力 | 检查干净工程是否仍成立 |
 | F-03 | Framework 资源随目标正确打包 | 通过 | 2026-09-22：Release 模拟器产物包含 `highlight.min.js`、数学字体、MathJax/SwiftMath bundle 及 Demo 验收样例 |
 | F-04 | 无重复 Package/source/framework 依赖 | 已验证基础能力 | 防止重复符号和模块映射冲突 |
-| F-05 | 许可证文件齐全 | 待验收 | 对照 SourceManifest.md |
+| F-05 | 许可证文件齐全 | 通过 | 2026-09-22：已对照 `SourceManifest.md` 核对依赖及 highlight.js 许可证，交付目录文件齐全 |
 | F-06 | 交付目录哈希和版本号冻结 | 待验收 | 只在全部阻塞项关闭后执行 |
 
 ## 稳定版本冻结条件

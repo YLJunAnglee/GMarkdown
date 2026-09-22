@@ -1,0 +1,31 @@
+# 代码语言高亮验收
+
+前置文本应保留，下面分别验证 Swift、C 和 JSON 代码块。
+
+```swift
+struct User {
+    let name: String
+    let age: Int
+}
+
+let user = User(name: "Ada", age: 36)
+```
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    printf("hello\n");
+    return 0;
+}
+```
+
+```json
+{
+  "name": "Ada",
+  "active": true,
+  "score": 36
+}
+```
+
+后置文本应保留，代码块 Copy 内容应与原文一致。

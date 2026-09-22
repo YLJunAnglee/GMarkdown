@@ -43,6 +43,8 @@ class NukeImageLoader: ImageLoader {
 
     @MainActor func loadImage(from source: String, into imageView: UIImageView, fallbackText: String?) {
         imageView.backgroundColor = .clear
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
         imageView.viewWithTag(947_001)?.removeFromSuperview()
         if source == Self.longImageFixtureSource {
             imageView.image = Self.longImageFixture

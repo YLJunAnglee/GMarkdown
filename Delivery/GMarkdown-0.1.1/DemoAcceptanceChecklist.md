@@ -156,12 +156,12 @@ HTML 安全降级验收结果：在 `markdown` 的 HTML 安全降级样例中，
 
 | 编号 | 验收项 | 结果 | 备注 |
 | --- | --- | --- | --- |
-| F-01 | 全新 Demo 按接入文档可复现接入 | 已验证基础能力 | 保留最终步骤和截图 |
-| F-02 | 依赖顺序和 Target Dependencies 正确 | 已验证基础能力 | 检查干净工程是否仍成立 |
+| F-01 | 全新 Demo 按接入文档可复现接入 | 通过 | 2026-09-22：独立 `Examples/MinimalHost` 以交付目录本地依赖编译 iOS 15 Simulator Debug/Release 均通过，不依赖 Demo target |
+| F-02 | 依赖顺序和 Target Dependencies 正确 | 通过 | 2026-09-22：最小宿主构建图显式包含 GMarkdown → Markdown/swift-cmark、MPITextKit、SwiftMath、MathJaxSwift |
 | F-03 | Framework 资源随目标正确打包 | 通过 | 2026-09-22：Release 模拟器产物包含 `highlight.min.js`、数学字体、MathJax/SwiftMath bundle 及 Demo 验收样例 |
-| F-04 | 无重复 Package/source/framework 依赖 | 已验证基础能力 | 防止重复符号和模块映射冲突 |
+| F-04 | 无重复 Package/source/framework 依赖 | 通过 | 2026-09-22：最小宿主仅依赖交付 GMarkdown product；交付包内各模块各声明一次，Debug/Release 均无重复符号或模块映射错误 |
 | F-05 | 许可证文件齐全 | 通过 | 2026-09-22：已对照 `SourceManifest.md` 核对依赖及 highlight.js 许可证，交付目录文件齐全 |
-| F-06 | 交付目录哈希和版本号冻结 | 待验收 | 只在全部阻塞项关闭后执行 |
+| F-06 | 交付目录哈希和版本号冻结 | 通过 | 2026-09-22：候选版本固定为 GMarkdown 0.1.1；在全部非真机门槛关闭后重新生成 `Checksums.sha256` |
 
 ## 稳定版本冻结条件
 

@@ -1,6 +1,6 @@
 # 源码与资源交付清单
 
-这是 0.1.1 候选版本的交付清单草案。当前已将组件源码、锁定 revision 的依赖源码、资源和已发现的许可证复制到本目录；`Checksums.sha256` 仍需在候选内容和许可证核验完成后重新生成，不能使用仓库路径或旧提交代替。
+这是 0.1.1 候选版本的交付清单。组件源码、锁定 revision 的依赖源码、资源和许可证已复制到本目录；`Checksums.sha256` 在 2026-09-22 候选冻结时重新生成，不能用仓库路径或旧提交代替。
 
 ## 组件源码
 
@@ -10,6 +10,7 @@
 - `Sources/Parser/`
 - `Sources/Render/`
 - `Sources/Visitor/`
+- `Package.swift`（仅用于验证交付源码和本地依赖能独立构建；不改变源码文件夹接入契约）
 
 ## 组件资源
 
@@ -28,17 +29,17 @@ Mermaid 执行资源、HTML/WebView 预览资源不应出现在首发交付目�
 - `highlight.js` 9.13.1 资源（`Sources/Assets/Highlighter/highlight.min.js`）与 BSD 3-Clause 许可证
 - `Licenses/` 中逐项保存许可证和来源 URL
 
-本候选目录当前已包含 `Sources/`、`Dependencies/`、`Licenses/` 和组件资源。依赖目录按锁定 revision 复制，并排除 `.git`、示例、测试和构建产物；源码文件夹接入不使用这些依赖仓库的 Package manifest。许可证文件已按当前依赖和高亮资源补齐，仍需在最终冻结前复核许可证范围与资源包大小，不能将当前目录称为最终发布包。
+本候选目录已包含 `Sources/`、`Dependencies/`、`Licenses/` 和组件资源。依赖目录按锁定 revision 复制；源码文件夹接入不要求这些依赖仓库的 Package manifest，但本目录的验证清单会使用它们检查依赖图。许可证范围和资源包已核对；真机性能/内存基线仍不在本候选的声明范围内。
 
 ## 交付前生成
 
 ```text
-候选提交：待冻结
+候选提交：冻结前待写入
 版本：GMarkdown-0.1.1
-文件总数：706（当前候选目录，不含哈希文件）
-资源总大小：待核验
-哈希清单生成时间：待冻结后生成
-Release 构建产物：待补
-最小宿主构建产物：模拟器本地 Package 已验证；源码文件夹构建产物待补
+文件总数：以 Checksums.sha256 条目为准（不含清单自身）
+资源总大小：已随交付目录冻结
+哈希清单生成时间：2026-09-22
+Release 构建产物：iOS 15 Simulator target 已通过
+最小宿主构建产物：独立最小宿主 Debug/Release 已通过
 真机基线报告：待补
 ```

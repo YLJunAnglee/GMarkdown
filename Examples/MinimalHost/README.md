@@ -1,6 +1,15 @@
 # GMarkdown 最小宿主样板
 
-这是源码文件夹分发的最小接入样板，不是已构建的发布工程。它只接入首发主路径 `GMarkdownMultiView`；TextView、Mermaid 预览和 iPhone 横屏不在样板承诺内。
+这是源码文件夹分发的最小接入样板。`Package.swift` 仅用于交付目录的本地构建验证，不改变首发以独立 Xcode framework target 接入的契约。它只接入首发主路径 `GMarkdownMultiView`；TextView、Mermaid 预览和 iPhone 横屏不在样板承诺内。
+
+## 本地交付验证
+
+在仓库根目录执行以下命令，可在不依赖 Demo 的情况下编译最小宿主和交付源码；它们只使用 `Delivery/GMarkdown-0.1.1/Dependencies/` 中的依赖源码：
+
+```bash
+swift build --package-path Examples/MinimalHost --triple arm64-apple-ios15.0-simulator --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -c debug
+swift build --package-path Examples/MinimalHost --triple arm64-apple-ios15.0-simulator --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -c release
+```
 
 ## 从干净 Xcode 工程接入
 
@@ -72,4 +81,4 @@ final class MinimalReaderViewController: UIViewController {
 - [ ] 内容替换和退出后无旧 chunk；大章节退出调用 `clearContent()`。
 - [ ] 完成 [ReleaseBaseline.md](../../Docs/Performance/ReleaseBaseline.md) 的真机测量后，才可判断 L1/L2。
 
-当前状态：**用户已确认模拟器构建/启动正常**；真机、Release 性能/内存和正式交付目录验证仍待补。
+当前状态：2026-09-22 已在 iOS 15 Simulator target 完成独立最小宿主的 Debug/Release 构建；真机 Release 性能/内存仍待补测。

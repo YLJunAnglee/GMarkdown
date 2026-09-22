@@ -20,7 +20,7 @@
 2. 将 `Dependencies/` 中的 `Markdown`（含 `swift-cmark` C target）、`MPITextKit`、`SwiftMath`、`MathJaxSwift` 分别建立为可导入模块，并让 `GMarkdown` target 显式依赖它们。
 3. 检查 `Licenses/` 是否包含 swift-markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 和 highlight.js 许可证。
 4. 编译 Debug 和 Release；确认最低 iOS 15，且没有把 Mermaid/HTML WebView 资源带入首发包。
-5. 使用 `Examples/MinimalHost/` 的最小控制器完成干净构建/启动，再运行固定回归集。
+5. 使用 `Examples/MinimalHost/` 的最小控制器完成干净构建/启动，再运行固定回归集。该目录的 `Package.swift` 是只使用交付目录本地依赖的构建验证入口，不改变源码文件夹接入契约。
 6. 真机 Release 完成性能/内存基线后，才填写候选版本的验收记录。
 
-当前状态：全新最小宿主已由用户确认通过本地 Package 在模拟器中构建、启动、换行、深色模式和 Dynamic Type 验证；源码文件夹复制、许可证汇总、资源包大小、Release 构建和真机基线仍待阶段 E/D 完成。
+当前状态：2026-09-22 已以 `Examples/MinimalHost/Package.swift` 独立编译交付目录的 `Sources/` 及本地 Markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 依赖，iOS 15 Simulator target 的 Debug/Release 均通过；许可证和资源已核对。真机 Release 性能/内存及 iOS 15 实机运行仍待补测。

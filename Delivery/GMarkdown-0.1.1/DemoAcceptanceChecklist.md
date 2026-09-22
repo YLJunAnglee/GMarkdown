@@ -75,7 +75,7 @@ iPad 适配结果：在 iPad Air 13-inch (M4)、iPadOS 27.0 上验证竖屏、�
 
 许可证核对结果：对照 `SourceManifest.md`，swift-markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 和 highlight.js 均有对应许可证文件，GMarkdown 自身许可证也已包含。F-05 通过。
 
-尚未完成：代码高亮资源运行时加载验证、iPad 以外的兼容性补测、真机 Release 性能和内存、iOS 15 最低版本核心路径验证。
+尚未完成：iPad 以外的兼容性补测、真机 Release 性能和内存、iOS 15 最低版本核心路径验证。
 
 ## A. Markdown 内容能力
 

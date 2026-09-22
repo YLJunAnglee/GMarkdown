@@ -75,6 +75,8 @@ iPad 适配结果：在 iPad Air 13-inch (M4)、iPadOS 27.0 上验证竖屏、�
 
 许可证核对结果：对照 `SourceManifest.md`，swift-markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 和 highlight.js 均有对应许可证文件，GMarkdown 自身许可证也已包含。F-05 通过。
 
+Dynamic Type 缩小验收结果：系统字体调小后，`markdownv2` 和 `markdownLatex` 中的列表、公式和表格布局均正常，无错位、截断或崩溃。D-01 通过。
+
 尚未完成：iPad 以外的兼容性补测、真机 Release 性能和内存、iOS 15 最低版本核心路径验证。
 
 ## A. Markdown 内容能力
@@ -117,7 +119,7 @@ iPad 适配结果：在 iPad Air 13-inch (M4)、iPadOS 27.0 上验证竖屏、�
 
 | 编号 | 验收项 | 结果 | 备注 |
 | --- | --- | --- | --- |
-| D-01 | Dynamic Type 放大/缩小 | 已验证当前样例 | 已修复有序列表布局问题；缩小待补 |
+| D-01 | Dynamic Type 放大/缩小 | 通过 | 2026-09-22：放大及缩小均已验证；有序列表、公式和表格布局正常 |
 | D-02 | 深色模式 | 已验证当前样例 | 已覆盖代码、表格、公式和链接颜色 |
 | D-03 | iPhone 竖屏 | 通过 | 2026-09-22：长文本竖屏查看和滚动正常，无布局或崩溃问题 |
 | D-04 | iPad 横竖屏和分屏 | 通过 | 2026-09-21：iPad Air 13-inch (M4)、iPadOS 27.0；竖屏、横屏和窄窗口/分屏均正常 |

@@ -4,7 +4,7 @@
 
 ## 从干净 Xcode 工程接入
 
-1. 新建 iOS App，Deployment Target 设为 iOS 14.0，Swift 5。
+1. 新建 iOS App，Deployment Target 设为 iOS 15.0，Swift 5。
 2. 在宿主工程中建立独立的 `GMarkdown` framework target，并将交付目录中的 `Sources/` 加入该 target；资源加入该 target 的资源构建阶段。
 3. 将交付目录中的依赖源码分别建立为可导入模块：`Markdown`（含 `swift-cmark` 的 C target）、`MPITextKit`、`SwiftMath`、`MathJaxSwift`；让 `GMarkdown` target 依赖这些模块。不要把不同模块的源码直接混入 App target，也不要从业务工程散改组件源码。
 4. 把下方控制器加入 App target，并确认 App 依赖 `GMarkdown` 模块。
@@ -63,7 +63,7 @@ final class MinimalReaderViewController: UIViewController {
 
 ## 宿主验收清单
 
-- [ ] iOS 14 最低版本、Release/Debug 配置和 Swift 5 已确认。
+- [ ] iOS 15 最低版本、Release/Debug 配置和 Swift 5 已确认。
 - [ ] 首发只使用分块路径；TextView 仅作为诊断工具。
 - [ ] Markdown、用户输入和第三方 HTML 按不可信输入处理。
 - [ ] HTML 非执行式展示、Mermaid 代码展示/复制、无 WebView 预览。

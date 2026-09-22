@@ -19,7 +19,7 @@ class TextViewViewController: UIViewController {
     private var currentIndex = 0
     private var currentContent = ""
     
-    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5","markdownLatex","markdownTemp", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
+    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5", "markdownLatex", "markdownAcceptanceCodeLanguages", "markdownTemp", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
     
     override func viewDidLoad() {
         super.viewDidLoad()

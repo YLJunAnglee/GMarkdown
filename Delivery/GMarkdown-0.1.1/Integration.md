@@ -23,4 +23,4 @@
 5. 使用 `Examples/MinimalHost/` 的最小控制器完成干净构建/启动，再运行固定回归集。该目录的 `Package.swift` 是只使用交付目录本地依赖的构建验证入口，不改变源码文件夹接入契约。
 6. 真机 Release 完成性能/内存基线后，才填写候选版本的验收记录。
 
-当前状态：2026-09-22 已以 `Examples/MinimalHost/Package.swift` 独立编译交付目录的 `Sources/` 及本地 Markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 依赖，iOS 15 Simulator target 的 Debug/Release 均通过；许可证和资源已核对。真机 Release 性能/内存及 iOS 15 实机运行仍待补测。
+当前状态：2026-09-22 已以 `Examples/MinimalHost/Package.swift` 独立编译交付目录的 `Sources/` 及本地 Markdown、swift-cmark、MPITextKit、SwiftMath、MathJaxSwift 依赖，iOS 15 Simulator target 的 Debug/Release 均通过；这只是源码编译验证，不替代文档所述的干净 Xcode framework target 接入。许可证和资源已核对；原生 Xcode 接入、真机 Release 性能/内存及 iOS 15 实机运行仍待补测。

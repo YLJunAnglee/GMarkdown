@@ -156,10 +156,10 @@ HTML 安全降级验收结果：在 `markdown` 的 HTML 安全降级样例中，
 
 | 编号 | 验收项 | 结果 | 备注 |
 | --- | --- | --- | --- |
-| F-01 | 全新 Demo 按接入文档可复现接入 | 通过 | 2026-09-22：独立 `Examples/MinimalHost` 以交付目录本地依赖编译 iOS 15 Simulator Debug/Release 均通过，不依赖 Demo target |
-| F-02 | 依赖顺序和 Target Dependencies 正确 | 通过 | 2026-09-22：最小宿主构建图显式包含 GMarkdown → Markdown/swift-cmark、MPITextKit、SwiftMath、MathJaxSwift |
+| F-01 | 全新 Demo 按接入文档可复现接入 | 基础验证通过，原生 Xcode 接入待验证 | 2026-09-22：独立 `Examples/MinimalHost` 以交付目录本地依赖编译 iOS 15 Simulator Debug/Release 均通过；尚未创建并构建文档所述的干净 Xcode framework target |
+| F-02 | 依赖顺序和 Target Dependencies 正确 | 基础验证通过，原生 Xcode 接入待验证 | 本地验证清单已显式包含 GMarkdown → Markdown/swift-cmark、MPITextKit、SwiftMath、MathJaxSwift；尚未在独立 Xcode 工程中验证 Target Dependencies |
 | F-03 | Framework 资源随目标正确打包 | 通过 | 2026-09-22：Release 模拟器产物包含 `highlight.min.js`、数学字体、MathJax/SwiftMath bundle 及 Demo 验收样例 |
-| F-04 | 无重复 Package/source/framework 依赖 | 通过 | 2026-09-22：最小宿主仅依赖交付 GMarkdown product；交付包内各模块各声明一次，Debug/Release 均无重复符号或模块映射错误 |
+| F-04 | 无重复 Package/source/framework 依赖 | 基础验证通过，原生 Xcode 接入待验证 | 本地最小宿主仅依赖交付 GMarkdown product，Debug/Release 无重复符号；独立 Xcode source/framework 工程仍未验证 |
 | F-05 | 许可证文件齐全 | 通过 | 2026-09-22：已对照 `SourceManifest.md` 核对依赖及 highlight.js 许可证，交付目录文件齐全 |
 | F-06 | 交付目录哈希和版本号冻结 | 通过 | 2026-09-22：候选版本固定为 GMarkdown 0.1.1；在全部非真机门槛关闭后重新生成 `Checksums.sha256` |
 
@@ -170,7 +170,7 @@ HTML 安全降级验收结果：在 `markdown` 的 HTML 安全降级样例中，
 1. A、B、C 的核心项全部通过；
 2. D-01、D-02、D-03、D-05、D-06 全部通过；
 3. E-01 至 E-07 无阻塞问题；真机项目不可用时，E-08 必须明确标记为未完成风险；
-4. F-01 至 F-05 通过；
+4. F-01、F-02、F-04 至少完成原生 Xcode source/framework 工程验证，F-03、F-05 通过；
 5. 所有 `阻塞` 问题已关闭，所有 `观察` 项有明确说明；
 6. 保存验收输入样例、截图、构建日志和已知限制；
 7. 冻结源码、资源、依赖版本和校验文件，不再直接修改稳定目录。

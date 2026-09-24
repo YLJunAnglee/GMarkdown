@@ -44,6 +44,7 @@
 		E10000000000000000000005 /* FormulaSourcePreservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000004 /* FormulaSourcePreservationTests.swift */; };
 		E10000000000000000000006 /* GMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000000D /* GMarkdown */; };
 		E1000000000000000000000E /* FormulaModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000000000000000000000F /* FormulaModeTests.swift */; };
+		E20000000000000000000002 /* ProjectFormulaVisualTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000011 /* ProjectFormulaVisualTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,6 +85,8 @@
 		E10000000000000000000002 /* GMarkdownExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GMarkdownExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E10000000000000000000004 /* FormulaSourcePreservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormulaSourcePreservationTests.swift; path = ../../Tests/GMarkdownTests/FormulaSourcePreservationTests.swift; sourceTree = SOURCE_ROOT; };
 		E1000000000000000000000F /* FormulaModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormulaModeTests.swift; path = ../../Tests/GMarkdownTests/FormulaModeTests.swift; sourceTree = SOURCE_ROOT; };
+		E10000000000000000000011 /* ProjectFormulaVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProjectFormulaVisualTests.swift; path = ../../Tests/GMarkdownTests/ProjectFormulaVisualTests.swift; sourceTree = SOURCE_ROOT; };
+		E20000000000000000000001 /* GMarkdownExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GMarkdownExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +105,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				E10000000000000000000006 /* GMarkdown in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E20000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,6 +150,7 @@
 			children = (
 				CA2DB0AC5C73C8C37CFA439F /* GMarkdownExample.app */,
 				E10000000000000000000002 /* GMarkdownExampleTests.xctest */,
+				E20000000000000000000001 /* GMarkdownExampleUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -151,6 +162,14 @@
 				E1000000000000000000000F /* FormulaModeTests.swift */,
 			);
 			name = GMarkdownExampleTests;
+			sourceTree = "<group>";
+		};
+		E20000000000000000000004 /* GMarkdownExampleUITests */ = {
+			isa = PBXGroup;
+			children = (
+				E10000000000000000000011 /* ProjectFormulaVisualTests.swift */,
+			);
+			name = GMarkdownExampleUITests;
 			sourceTree = "<group>";
 		};
 		32E994BA127B791E310D47C3 /* Packages */ = {
@@ -186,6 +205,7 @@
 			children = (
 				DEB3D7D5CC899547F5A923FB /* GMarkdownExample */,
 				E10000000000000000000003 /* GMarkdownExampleTests */,
+				E20000000000000000000004 /* GMarkdownExampleUITests */,
 				32E994BA127B791E310D47C3 /* Packages */,
 				2E14F20F027DEB79792667F6 /* Products */,
 			);
@@ -235,6 +255,25 @@
 			productReference = E10000000000000000000002 /* GMarkdownExampleTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		E20000000000000000000005 /* GMarkdownExampleUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E20000000000000000000006 /* Build configuration list for PBXNativeTarget "GMarkdownExampleUITests" */;
+			buildPhases = (
+				E20000000000000000000007 /* Sources */,
+				E20000000000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E20000000000000000000008 /* PBXTargetDependency */,
+			);
+			name = GMarkdownExampleUITests;
+			packageProductDependencies = (
+			);
+			productName = GMarkdownExampleUITests;
+			productReference = E20000000000000000000001 /* GMarkdownExampleUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -262,9 +301,17 @@
 			targets = (
 				9A6B919FB4D8DD30162DCE54 /* GMarkdownExample */,
 				E10000000000000000000009 /* GMarkdownExampleTests */,
+				E20000000000000000000005 /* GMarkdownExampleUITests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXTargetDependency section */
+		E20000000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9A6B919FB4D8DD30162DCE54 /* GMarkdownExample */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXResourcesBuildPhase section */
 		85B3A07866681DB476CD2509 /* Resources */ = {
@@ -321,6 +368,14 @@
 			files = (
 				E10000000000000000000005 /* FormulaSourcePreservationTests.swift in Sources */,
 				E1000000000000000000000E /* FormulaModeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E20000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E20000000000000000000002 /* ProjectFormulaVisualTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -549,6 +604,36 @@
 			};
 			name = Release;
 		};
+		E20000000000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.giki.markdown.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GMarkdownExample;
+			};
+			name = Debug;
+		};
+		E2000000000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.giki.markdown.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GMarkdownExample;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -575,6 +660,15 @@
 			buildConfigurations = (
 				E1000000000000000000000B /* Debug */,
 				E1000000000000000000000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E20000000000000000000006 /* Build configuration list for PBXNativeTarget "GMarkdownExampleUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E20000000000000000000009 /* Debug */,
+				E2000000000000000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

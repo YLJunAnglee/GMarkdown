@@ -5,7 +5,13 @@
    <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES" buildArchitectures="Automatic">
       <BuildActionEntries>
          <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="9A6B919FB4D8DD30162DCE54" BuildableName="GMarkdownExample.app" BlueprintName="GMarkdownExample" ReferencedContainer="container:GMarkdownExample.xcodeproj"/>
+         </BuildActionEntry>
+         <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
             <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E10000000000000000000009" BuildableName="GMarkdownExampleTests.xctest" BlueprintName="GMarkdownExampleTests" ReferencedContainer="container:GMarkdownExample.xcodeproj"/>
+         </BuildActionEntry>
+         <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E20000000000000000000005" BuildableName="GMarkdownExampleUITests.xctest" BlueprintName="GMarkdownExampleUITests" ReferencedContainer="container:GMarkdownExample.xcodeproj"/>
          </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
@@ -13,6 +19,9 @@
       <Testables>
          <TestableReference skipped="NO">
             <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E10000000000000000000009" BuildableName="GMarkdownExampleTests.xctest" BlueprintName="GMarkdownExampleTests" ReferencedContainer="container:GMarkdownExample.xcodeproj"/>
+         </TestableReference>
+         <TestableReference skipped="NO">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="E20000000000000000000005" BuildableName="GMarkdownExampleUITests.xctest" BlueprintName="GMarkdownExampleUITests" ReferencedContainer="container:GMarkdownExample.xcodeproj"/>
          </TestableReference>
       </Testables>
    </TestAction>

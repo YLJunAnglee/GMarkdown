@@ -45,6 +45,7 @@
 		E10000000000000000000006 /* GMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000000D /* GMarkdown */; };
 		E1000000000000000000000E /* FormulaModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000000000000000000000F /* FormulaModeTests.swift */; };
 		E20000000000000000000002 /* ProjectFormulaVisualTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000011 /* ProjectFormulaVisualTests.swift */; };
+		E30000000000000000000002 /* ProjectImageVisualTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30000000000000000000001 /* ProjectImageVisualTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -87,6 +88,7 @@
 		E1000000000000000000000F /* FormulaModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormulaModeTests.swift; path = ../../Tests/GMarkdownTests/FormulaModeTests.swift; sourceTree = SOURCE_ROOT; };
 		E10000000000000000000011 /* ProjectFormulaVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProjectFormulaVisualTests.swift; path = ../../Tests/GMarkdownTests/ProjectFormulaVisualTests.swift; sourceTree = SOURCE_ROOT; };
 		E20000000000000000000001 /* GMarkdownExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GMarkdownExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E30000000000000000000001 /* ProjectImageVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProjectImageVisualTests.swift; path = ../../Tests/GMarkdownTests/ProjectImageVisualTests.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -168,6 +170,7 @@
 			isa = PBXGroup;
 			children = (
 				E10000000000000000000011 /* ProjectFormulaVisualTests.swift */,
+				E30000000000000000000001 /* ProjectImageVisualTests.swift */,
 			);
 			name = GMarkdownExampleUITests;
 			sourceTree = "<group>";
@@ -376,6 +379,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E20000000000000000000002 /* ProjectFormulaVisualTests.swift in Sources */,
+				E30000000000000000000002 /* ProjectImageVisualTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

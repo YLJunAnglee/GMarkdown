@@ -35,7 +35,9 @@ struct GMarkHTMLSanitizer {
         "script", "style", "iframe", "object", "embed", "form", "video", "audio", "svg", "math", "template"
     ]
 
-    static func attributedString(from rawHTML: String, style: Style) -> NSMutableAttributedString {
+    static func attributedString(from rawHTML: String,
+                                 style: Style,
+                                 onImageFallback: ((Bool) -> Void)? = nil) -> NSMutableAttributedString {
         let result = NSMutableAttributedString()
         var state = InlineState()
         var textStart = rawHTML.startIndex
@@ -73,6 +75,7 @@ struct GMarkHTMLSanitizer {
                     result.append(attributedText(from: "• ", style: style, state: state))
                 }
             case let .imageFallback(alt):
+                onImageFallback?(!alt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 guard !state.isIgnoringContent, !alt.isEmpty else { break }
                 result.append(attributedText(from: decodeEntities(in: alt), style: style, state: state))
             case .none:
@@ -88,7 +91,10 @@ struct GMarkHTMLSanitizer {
 
     /// Applies one InlineHTML token to the visitor state. The caller renders
     /// ordinary Markdown Text only while `isIgnoringContent` is false.
-    static func applyInlineToken(_ rawHTML: String, to state: inout InlineState, style: Style) -> NSAttributedString? {
+    static func applyInlineToken(_ rawHTML: String,
+                                 to state: inout InlineState,
+                                 style: Style,
+                                 onImageFallback: ((Bool) -> Void)? = nil) -> NSAttributedString? {
         let action = apply(token: rawHTML, to: &state)
         switch action {
         case .none:
@@ -98,6 +104,7 @@ struct GMarkHTMLSanitizer {
         case .listItem:
             return attributedText(from: "• ", style: style, state: state)
         case let .imageFallback(alt):
+            onImageFallback?(!alt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             return attributedText(from: decodeEntities(in: alt), style: style, state: state)
         }
     }

@@ -24,6 +24,7 @@ public struct GMarkupVisitor: MarkupVisitor {
     private let style: Style
     public var referLoader: ReferLoader?
     public var imageLoader: ImageLoader?
+    var issueReporter: ((GMarkRenderIssue.Cause, GMarkRenderIssue.DisplayedFallback) -> Void)?
      
     public init(style: Style) {
         self.style = style
@@ -57,8 +58,16 @@ public struct GMarkupVisitor: MarkupVisitor {
     }
     
     public mutating func visitImage(_ image: Image) -> NSAttributedString {
-        guard style.useMPTextKit, let source = image.source else {
+        guard style.useMPTextKit else {
+            issueReporter?(.imageRenderingDisabled, .empty)
             return NSMutableAttributedString(string: "")
+        }
+        guard let source = image.source else {
+            issueReporter?(.imageSourceMissing, .empty)
+            return NSMutableAttributedString(string: "")
+        }
+        if imageLoader == nil {
+            issueReporter?(.imageLoaderMissing, .imagePlaceholder)
         }
         return processImageElement(source: source, fallbackText: image.plainText)
     }
@@ -185,6 +194,7 @@ extension GMarkupVisitor {
         if renderResult.success, let image = renderResult.image {
             return createLatexImageAttributedString(image: image)
         } else {
+            issueReporter?(.formulaRenderFailed, .sourceText)
             return createDefaultAttributedString(from: text.plainText)
         }
     }
@@ -378,16 +388,27 @@ extension GMarkupVisitor {
                 break
             }
         }
+        let reporter = issueReporter
         if let result = GMarkHTMLSanitizer.applyInlineToken(inlineHTML.rawHTML,
                                                             to: &htmlInlineState,
-                                                            style: style) {
+                                                            style: style,
+                                                            onImageFallback: { hasAlternateText in
+                                                                reporter?(.htmlImageReducedToAlternateText,
+                                                                          hasAlternateText ? .imageAlternateText : .empty)
+                                                            }) {
             return result
         }
         return NSAttributedString(string: "")
     }
     
     private mutating func processHTMLBlock(_ html: HTMLBlock) -> Result {
-        let result = GMarkHTMLSanitizer.attributedString(from: html.rawHTML, style: style)
+        let reporter = issueReporter
+        let result = GMarkHTMLSanitizer.attributedString(from: html.rawHTML,
+                                                         style: style,
+                                                         onImageFallback: { hasAlternateText in
+                                                             reporter?(.htmlImageReducedToAlternateText,
+                                                                       hasAlternateText ? .imageAlternateText : .empty)
+                                                         })
         MarkdownStyleProcessor.appendSplitBreakIfNeeded(for: html, to: result, style: style)
         return result
     }

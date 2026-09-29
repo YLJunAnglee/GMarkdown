@@ -31,6 +31,9 @@ public class GMarkChunkGenerator: ChunkGenerator {
     public var referLoader: ReferLoader?
     public var imageLoader: ImageLoader?
     public var identifier: String = UUID().uuidString
+    /// Called on the thread where a failure is detected. The host must switch
+    /// to the main thread before changing UI. Set before `generateChunks`.
+    public var onRenderIssue: ((GMarkRenderIssue) -> Void)?
     
     
     public init(handlers: [MarkupHandler] = [
@@ -55,7 +58,32 @@ public class GMarkChunkGenerator: ChunkGenerator {
         if let chunkStyle = style {
             currentChunk.style = chunkStyle
         }
-        for markup in markups {
+        for (sourceBlockIndex, markup) in markups.enumerated() {
+            let documentIdentifier = identifier
+            let callback = onRenderIssue
+            let reportIssue: (GMarkRenderIssue.Cause, GMarkRenderIssue.DisplayedFallback) -> Void = { cause, fallback in
+                callback?(GMarkRenderIssue(documentIdentifier: documentIdentifier,
+                                           sourceBlockIndex: sourceBlockIndex,
+                                           cause: cause,
+                                           displayedFallback: fallback))
+            }
+            let observedImageLoader: ImageLoader?
+            if let imageLoader, callback != nil {
+                observedImageLoader = GMarkObservedImageLoader(base: imageLoader) { outcome in
+                    switch outcome {
+                    case .success:
+                        break
+                    case .failedShowingAlternateText:
+                        reportIssue(.imageLoadFailed, .imageAlternateText)
+                    case .failedShowingPlaceholder:
+                        reportIssue(.imageLoadFailed, .imagePlaceholder)
+                    case .failedShowingEmptyImage:
+                        reportIssue(.imageLoadFailed, .empty)
+                    }
+                }
+            } else {
+                observedImageLoader = imageLoader
+            }
             if let handler = handlers.first(where: { $0.canHandle(markup) }) {
                 if !currentChunk.children.isEmpty {
                     chunks.append(currentChunk)
@@ -64,14 +92,32 @@ public class GMarkChunkGenerator: ChunkGenerator {
                         currentChunk.style = chunkStyle
                     }
                 }
-                let chunk = handler.handle(markup, style: style, imageLoader:imageLoader)
+                let chunk: GMarkChunk
+                if type(of: handler) == TableMarkupHandler.self,
+                   let tableHandler = handler as? TableMarkupHandler {
+                    tableHandler.imageLoader = imageLoader
+                    chunk = tableHandler.handle(markup,
+                                                style: style,
+                                                imageLoader: observedImageLoader,
+                                                issueReporter: reportIssue)
+                } else {
+                    chunk = handler.handle(markup, style: style, imageLoader: observedImageLoader)
+                }
                 chunk.identifier = identifier
                 chunk.updateHashKey()
                 chunks.append(chunk)
+                if type(of: handler) == LaTexMarkupHandler.self, chunk.latexImage == nil {
+                    reportIssue(.formulaRenderFailed, .sourceText)
+                } else if type(of: handler) == ImageMarkupHandler.self {
+                    // The current standalone image handler produces no visible
+                    // image attachment. Let the host choose its own image cell.
+                    reportIssue(.standaloneImageUnsupported, .empty)
+                }
             } else {
                 var visitor = GMarkupVisitor(style: currentChunk.style)
                 visitor.referLoader = referLoader
-                visitor.imageLoader = imageLoader
+                visitor.imageLoader = observedImageLoader
+                visitor.issueReporter = reportIssue
                 let attributeText = visitor.visit(markup)
                 
                 if currentChunk.attributedText.length + attributeText.length > maxAttributedStringLength {

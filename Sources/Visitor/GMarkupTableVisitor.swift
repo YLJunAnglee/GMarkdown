@@ -23,6 +23,7 @@ public struct GMarkupTableVisitor: MarkupVisitor {
     private let style: Style
     private var markTable: GMarkTable
     public var imageLoader: ImageLoader?
+    var issueReporter: ((GMarkRenderIssue.Cause, GMarkRenderIssue.DisplayedFallback) -> Void)?
     init(style: Style) {
         self.style = style
         markTable = GMarkTable()
@@ -62,6 +63,7 @@ public struct GMarkupTableVisitor: MarkupVisitor {
         for child in tableHead.cells {
             var visitor = GMarkupVisitor(style: style)
             visitor.imageLoader = imageLoader
+            visitor.issueReporter = issueReporter
             let attribute = visitor.visit(child)
             markTable.contents += attribute.string
             headers.append(attribute)
@@ -94,6 +96,7 @@ public struct GMarkupTableVisitor: MarkupVisitor {
         for child in tableRow.cells {
             var visitor = GMarkupVisitor(style: style)
             visitor.imageLoader = imageLoader
+            visitor.issueReporter = issueReporter
             let attribute = visitor.visit(child)
             markTable.contents += attribute.string
             rows.append(attribute)

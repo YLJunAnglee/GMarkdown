@@ -11,7 +11,7 @@ import Nuke
 import NukeExtensions
 import GMarkdown
 
-class NukeImageLoader: ImageLoader {
+class NukeImageLoader: GMarkReportingImageLoader {
     private static let longImageFixtureSource = "gmarkdown-demo://acceptance-long-image"
 
     private static let longImageFixture: UIImage = {
@@ -37,21 +37,47 @@ class NukeImageLoader: ImageLoader {
         }
     }()
 
-    @MainActor func loadImage(from source: String, into imageView: UIImageView) {
+    func loadImage(from source: String, into imageView: UIImageView) {
         loadImage(from: source, into: imageView, fallbackText: nil)
     }
 
-    @MainActor func loadImage(from source: String, into imageView: UIImageView, fallbackText: String?) {
+    func loadImage(from source: String, into imageView: UIImageView, fallbackText: String?) {
+        loadImage(from: source, into: imageView, fallbackText: fallbackText) { _ in }
+    }
+
+    func loadImage(from source: String,
+                   into imageView: UIImageView,
+                   fallbackText: String?,
+                   completion: @escaping (GMarkImageLoadOutcome) -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                loadImageOnMain(from: source, into: imageView, fallbackText: fallbackText, completion: completion)
+            }
+        } else {
+            DispatchQueue.main.async { [weak imageView] in
+                guard let imageView else { return }
+                self.loadImageOnMain(from: source, into: imageView, fallbackText: fallbackText, completion: completion)
+            }
+        }
+    }
+
+    @MainActor private func loadImageOnMain(from source: String,
+                                             into imageView: UIImageView,
+                                             fallbackText: String?,
+                                             completion: @escaping (GMarkImageLoadOutcome) -> Void) {
         imageView.backgroundColor = .clear
         imageView.contentMode = .scaleAspectFit
         imageView.clipsToBounds = true
+        imageView.image = nil
         imageView.viewWithTag(947_001)?.removeFromSuperview()
         if source == Self.longImageFixtureSource {
             imageView.image = Self.longImageFixture
+            completion(.success)
             return
         }
         guard let url = URL(string: source) else {
             showFallback(text: fallbackText, in: imageView)
+            completion(failureOutcome(for: fallbackText))
             return
         }
 
@@ -60,12 +86,22 @@ class NukeImageLoader: ImageLoader {
             transition: .fadeIn(duration: 0.33)
         )
         NukeExtensions.loadImage(with: url, options: options, into: imageView) { [weak imageView] result in
-            guard case .failure = result else { return }
             Task { @MainActor [weak imageView] in
                 guard let imageView else { return }
-                self.showFallback(text: fallbackText, in: imageView)
+                switch result {
+                case .success:
+                    completion(.success)
+                case .failure:
+                    self.showFallback(text: fallbackText, in: imageView)
+                    completion(self.failureOutcome(for: fallbackText))
+                }
             }
         }
+    }
+
+    private func failureOutcome(for text: String?) -> GMarkImageLoadOutcome {
+        let hasText = !(text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        return hasText ? .failedShowingAlternateText : .failedShowingEmptyImage
     }
 
     @MainActor private func showFallback(text: String?, in imageView: UIImageView) {

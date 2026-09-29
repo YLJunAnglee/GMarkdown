@@ -1,10 +1,10 @@
 # GMarkdown 项目适配执行基线
 
-状态：**阶段 1 的真实书籍数据盘点与已定义样本回归已完成；当前等待 `wordIndexBeans` 的业务语义确认。** 本文是后续工作的唯一入口。
+状态：**阶段 1 的真实书籍数据盘点与已定义样本回归已完成；业务方已补充 `richTxt`、`CustomClickableSpan` 和失败降级要求。下一步按[项目接入执行计划](./ProjectIntegrationExecutionPlan.md)补齐明确缺口。** 本文是已有结果与接入基线的入口。
 
-## 当前交接点（2026-09-28）
+## 当前交接点（2026-09-29）
 
-可以安全关闭当前窗口。新窗口继续时，先阅读本文、[项目 Markdown 兼容性矩阵](./ProjectMarkdownCompatibilityMatrix.md) 和 [`wordIndexBeans` 候选接入规格](./WordIndexBeansAdoptionSpec.md)，然后从下面的“下一步唯一决策”继续。
+新窗口继续时，先阅读本文、[项目接入执行计划](./ProjectIntegrationExecutionPlan.md)、[项目接入需求与能力对照](./ProjectIntegrationCapabilityGap.md) 和 [项目 Markdown 兼容性矩阵](./ProjectMarkdownCompatibilityMatrix.md)。`wordIndexBeans` 已由业务方决定暂不接入；需要使用时再按[候选接入规格](./WordIndexBeansAdoptionSpec.md)讨论。
 
 ### 已完成并提交
 
@@ -21,22 +21,18 @@
 - 真实图片资源没有随包提供。当前只能确认 `alt` 安全降级；业务若要求真图，必须另提供可访问的脱敏 URL/资源、鉴权方式、缓存/失效规则和失败文案。
 - `wordIndexBeans` 是原始 Markdown 的 UTF-16 半开位置范围 `[start, end)`，不是富文本、关键词高亮或挖空标记。其范围会与公式和代码重叠，不能直接套用到解析后的富文本。
 
-### 下一步唯一决策：确认 `wordIndexBeans` 的产品语义
+### 当前下一步：补齐实际业务要求的组件能力
 
-继续前请由业务确认它到底代表什么：
+2026-09-29 业务方补充了此前导出样本未覆盖的 `richTxt` 使用规则和 `<CustomClickableSpan>` 样本。`richTxt` 有内容时优先展示，空时才展示 `txt`；标准 HTML 富文本需要呈现正文和阅读样式；自定义标签标记可挖空文字，当前底部有虚线下划线。单独图片无法显示时由项目自定义 Cell 兜底。组件仍缺统一的渲染失败/受控降级通知。逐项结论见[能力对照](./ProjectIntegrationCapabilityGap.md)，实施顺序见[执行计划](./ProjectIntegrationExecutionPlan.md)。
 
-1. **暂不使用**：保持当前不展示、不接入；阶段 1 在现有输入范围内结束。
-2. **关键词高亮并可点击**：按 [`wordIndexBeans` 候选接入规格](./WordIndexBeansAdoptionSpec.md) 进入阶段 2 的“源范围映射 + 宿主回调”最小实现。第一期仅映射普通正文；公式、代码、表格、图片替代文本和无法一一映射的 Markdown 安全跳过并诊断。
-3. **其它业务语义**（例如挖空、复习标记、释义）：业务必须提供一个真实/脱敏样本、展示规则、点击后的动作、文本更新后的范围维护规则和失败兜底；确认后再决定是否需要自定义块或组件扩展。
-
-新窗口可以直接说明“继续 GMarkdown，`wordIndexBeans` 选择第 N 项”，无需重新进行 Demo 验收、公式或图片回归。
+`wordIndexBeans` 暂不使用、不展示、不接入；这不阻断上述能力工作。不要重新进行已通过的 Demo 基础验收。
 
 ## 已确认的结论
 
 1. **基础渲染能力已通过 Demo 验收。**
    在已记录的模拟器范围内，Markdown、LaTeX、表格、代码高亮与 Copy、图片/长图、受限 HTML、Mermaid 源码、深色模式、Dynamic Type、iPhone/iPad 适配、异步加载和重复进入均无阻塞问题。
-2. **尚未确认业务项目数据可按业务预期展示。**
-   Demo 通过只能说明通用能力可用。业务私有格式、图片 URL/鉴权、特殊公式、链接协议及业务样式仍需以真实数据确认。
+2. **项目 `txt` 内容已盘点，新增的 `richTxt` 要求尚未实现。**
+   9 本导出书籍中的 `txt` 类型已有归属；业务方另提供了编辑器 HTML 富文本和 `<CustomClickableSpan>` 样本，见[能力对照](./ProjectIntegrationCapabilityGap.md)。真实图片 URL/鉴权、业务链接协议及业务工程页面结构仍未核对。
 3. **现有项目的源码接入暂缓。**
    交付源码已完成本地 iOS 15 Simulator Debug/Release 编译验证；干净 Xcode framework target 接入不在当前阶段执行。
 
@@ -78,28 +74,11 @@
 
 ## 阶段 2：扩展能力
 
-### 2.1 必做：自定义业务块识别与宿主决策
+### 2.1 必做：已确认的富文本、业务标签与失败降级接口
 
-当前组件采用“尽可能渲染、无法完整支持则安全降级”的策略，但没有统一的“不可按业务样式渲染”回调。仅靠渲染后回调不够：未知业务语法可能已经被 Markdown 解析为普通文本，组件无法判断它在视觉上不符合业务预期。
+按[能力对照](./ProjectIntegrationCapabilityGap.md)实现 `richTxt` 优先规则、编辑器 HTML 富文本的受控展示，以及实际出现的行内 `<CustomClickableSpan>` 标签范围和底部虚线。组件还须向宿主报告可识别的渲染失败与受控降级，供宿主选择业务兜底。不能仅通过视觉结果推断业务是否接受降级，也不能让失败日志代替公开回调。
 
-第一期目标只支持**块级业务格式**，在默认 Markdown 解析前识别。例如：
-
-```markdown
-:::exercise
-题目内容
-:::
-```
-
-宿主针对已识别的业务块作出明确选择：
-
-- 返回自定义业务视图/块；
-- 返回业务富文本；
-- 明确保留原文；
-- 不处理，继续默认 Markdown 渲染。
-
-要求：默认 Markdown 行为不变；未注册的业务格式安全保留；识别结果包含原始内容、类型、位置和上下文，便于宿主日志与兜底。
-
-非目标：任意行内 DSL、复杂嵌套语法、自动判断“样式不好看”、让宿主直接管理组件内部 Cell 生命周期。
+当前 9 本书的 `txt` 没有已编码的块级业务 DSL，因此不预先开发 `:::exercise` 等通用块级识别框架。自定义标签的点击、挖空和恢复规则尚未口述，先保留范围与显示契约，不猜测业务状态机。
 
 ### 2.2 条件实施：宿主列表混排的单块渲染能力
 
@@ -120,13 +99,13 @@ Markdown → Parser / ChunkGenerator → [GMarkChunk]
 ## 推荐执行顺序
 
 1. 先拿真实项目数据完成阶段 1，产出兼容性矩阵。
-2. 根据矩阵定义实际需要识别的业务块类型，完成 2.1 的最小接口与回归样本。
+2. 根据业务方新增的 `richTxt` 和失败降级要求完成 2.1；仅对新增能力做定向验证。
 3. 如果项目页面确实是业务列表混排，再完成 2.2；若页面是独立阅读页，继续使用 `GMarkdownMultiView`，无需为了抽象而提前实现 2.2。
 4. 用真实数据回归通过后，再执行条件二的源码接入。
 
 ## 当前明确不做
 
 - 不重复执行已经通过的 Demo 基础渲染验收；除非相关代码发生变更。
-- 不在当前阶段创建干净 Xcode framework target 或接入现有项目。
+- 在 2.1 的能力缺口关闭前，不创建干净 Xcode framework target 或接入现有项目。
 - 不将 Mermaid 变成图形预览，不执行 HTML/JavaScript，不引入 WebView。
 - 真机 Release 性能、内存和 iOS 15 运行时在设备可用后补测。

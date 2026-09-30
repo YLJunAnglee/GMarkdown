@@ -2,15 +2,29 @@
 //  GMarkHTMLSanitizer.swift
 //  GMarkdown
 //
-//  The first-release HTML policy is intentionally display-only. This is not an
-//  HTML renderer: attributes are never interpreted, URLs are never emitted and
-//  embedded/executable containers are removed with their contents.
+//  Display-only HTML subset. Only text styles used by editor-generated content
+//  are interpreted; URLs are never emitted and embedded/executable containers
+//  are removed with their contents.
 //
 
 import Foundation
 import UIKit
 
 struct GMarkHTMLSanitizer {
+    fileprivate struct TextStyle {
+        var fontSize: CGFloat?
+        var color: UIColor?
+        var bold: Bool?
+        var italic: Bool?
+        var paragraphSpacing: CGFloat?
+    }
+
+    fileprivate struct StyleFrame {
+        let tag: String
+        let style: TextStyle
+        let hasStyle: Bool
+    }
+
     struct InlineState {
         fileprivate var ignoredDepth = 0
         fileprivate var boldDepth = 0
@@ -20,26 +34,44 @@ struct GMarkHTMLSanitizer {
         fileprivate var superscriptDepth = 0
         fileprivate var subscriptDepth = 0
         fileprivate var codeDepth = 0
+        fileprivate var styleFrames: [StyleFrame] = []
 
         var isIgnoringContent: Bool { ignoredDepth > 0 }
+        var isInHTMLContext: Bool { styleFrames.contains { $0.hasStyle } }
+
+        fileprivate func currentStyle() -> TextStyle {
+            var value = TextStyle()
+            for frame in styleFrames {
+                let next = frame.style
+                if let fontSize = next.fontSize { value.fontSize = fontSize }
+                if let color = next.color { value.color = color }
+                if let bold = next.bold { value.bold = bold }
+                if let italic = next.italic { value.italic = italic }
+                if let spacing = next.paragraphSpacing { value.paragraphSpacing = spacing }
+            }
+            return value
+        }
     }
 
     private enum TokenAction {
         case none
         case lineBreak
         case listItem
+        case listItemEnd
         case imageFallback(String)
     }
 
     private static let discardedContainers: Set<String> = [
         "script", "style", "iframe", "object", "embed", "form", "video", "audio", "svg", "math", "template"
     ]
+    private static let voidTags: Set<String> = ["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]
 
     static func attributedString(from rawHTML: String,
                                  style: Style,
                                  onImageFallback: ((Bool) -> Void)? = nil) -> NSMutableAttributedString {
         let result = NSMutableAttributedString()
         var state = InlineState()
+        var listItemStarts: [(start: Int, hasContent: Bool)] = []
         var textStart = rawHTML.startIndex
         var index = rawHTML.startIndex
 
@@ -50,7 +82,8 @@ struct GMarkHTMLSanitizer {
             // content. Dropping them prevents source indentation from becoming
             // large visual gaps after paragraph styling is applied.
             guard !decoded.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty else { return }
-            result.append(attributedText(from: decoded, style: style, state: state))
+            result.append(attributedText(from: decoded, style: style, state: state, htmlMode: true))
+            for item in listItemStarts.indices { listItemStarts[item].hasContent = true }
         }
 
         while index < rawHTML.endIndex {
@@ -70,14 +103,28 @@ struct GMarkHTMLSanitizer {
             case .lineBreak:
                 appendLineBreak(to: result)
             case .listItem:
+                let start = result.length
                 appendLineBreak(to: result)
                 if !state.isIgnoringContent {
-                    result.append(attributedText(from: "• ", style: style, state: state))
+                    result.append(attributedText(from: "• ", style: style, state: state, htmlMode: true))
+                    listItemStarts.append((start, false))
                 }
+            case .listItemEnd:
+                if let item = listItemStarts.popLast() {
+                    if !item.hasContent {
+                        result.deleteCharacters(in: NSRange(location: item.start, length: result.length - item.start))
+                        break
+                    }
+                }
+                appendLineBreak(to: result)
             case let .imageFallback(alt):
                 onImageFallback?(!alt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 guard !state.isIgnoringContent, !alt.isEmpty else { break }
-                result.append(attributedText(from: decodeEntities(in: alt), style: style, state: state))
+                let decodedAlt = decodeEntities(in: alt)
+                result.append(attributedText(from: decodedAlt, style: style, state: state, htmlMode: true))
+                if !decodedAlt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    for item in listItemStarts.indices { listItemStarts[item].hasContent = true }
+                }
             case .none:
                 break
             }
@@ -103,18 +150,38 @@ struct GMarkHTMLSanitizer {
             return NSAttributedString.singleNewline(withStyle: style)
         case .listItem:
             return attributedText(from: "• ", style: style, state: state)
+        case .listItemEnd:
+            return NSAttributedString.singleNewline(withStyle: style)
         case let .imageFallback(alt):
             onImageFallback?(!alt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             return attributedText(from: decodeEntities(in: alt), style: style, state: state)
         }
     }
 
-    static func attributedText(from text: String, style: Style, state: InlineState) -> NSMutableAttributedString {
+    static func attributedText(from text: String, style: Style, state: InlineState, htmlMode: Bool = false) -> NSMutableAttributedString {
         let result = MarkdownStyleProcessor.buildDefaultAttributedString(from: text, style: style)
         guard result.length > 0 else { return result }
 
-        if state.boldDepth > 0 { MarkdownStyleProcessor.applyBoldFont(to: result) }
-        if state.italicDepth > 0 { MarkdownStyleProcessor.applyItalicFont(to: result) }
+        let textStyle = state.currentStyle()
+        let isHTML = htmlMode || state.isInHTMLContext
+        if isHTML {
+            // Markdown's default 16pt paragraph spacing belongs to Markdown
+            // blocks, not to HTML list rows or editor-controlled paragraphs.
+            let paragraph = (result.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?
+                .mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            paragraph.paragraphSpacing = textStyle.paragraphSpacing ?? 0
+            if let fontSize = textStyle.fontSize {
+                paragraph.lineSpacing = max(0, 25 - fontSize)
+                let font = (result.attribute(.font, at: 0, effectiveRange: nil) as? UIFont ?? style.fonts.current)
+                    .withSize(fontSize)
+                result.addAttribute(.font, value: font)
+            }
+            result.addAttribute(.paragraphStyle, value: paragraph)
+            if let color = textStyle.color { result.addAttribute(.foregroundColor, value: color) }
+        }
+
+        if state.boldDepth > 0 || textStyle.bold == true { MarkdownStyleProcessor.applyBoldFont(to: result) }
+        if state.italicDepth > 0 || textStyle.italic == true { MarkdownStyleProcessor.applyItalicFont(to: result) }
         if state.underlineDepth > 0 {
             result.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue)
         }
@@ -151,13 +218,25 @@ struct GMarkHTMLSanitizer {
             return .imageFallback(attribute(named: "alt", in: tag.attributes) ?? "")
         }
 
+        if tag.isClosing {
+            if let index = state.styleFrames.lastIndex(where: { $0.tag == name }) {
+                state.styleFrames.remove(at: index)
+            }
+        } else if !tag.isSelfClosing && !voidTags.contains(name) {
+            let rawStyle = attribute(named: "style", in: tag.attributes)
+            let isBlock = name == "p" || name == "div" || name == "blockquote" || name == "li"
+            state.styleFrames.append(StyleFrame(tag: name,
+                                                style: rawStyle.map { parseTextStyle($0, allowsParagraphSpacing: isBlock) } ?? TextStyle(),
+                                                hasStyle: rawStyle != nil))
+        }
+
         switch name {
         case "br":
             return .lineBreak
         case "p", "div", "blockquote":
             return tag.isClosing ? .lineBreak : .none
         case "li":
-            return tag.isClosing ? .lineBreak : .listItem
+            return tag.isClosing ? .listItemEnd : .listItem
         case "strong", "b":
             update(&state.boldDepth, closing: tag.isClosing)
         case "em", "i":
@@ -183,7 +262,9 @@ struct GMarkHTMLSanitizer {
     }
 
     private static func appendLineBreak(to result: NSMutableAttributedString) {
-        guard result.length > 0, !result.string.hasSuffix("\n") else { return }
+        guard result.length > 0 else { return }
+        let lastCharacter = result.attributedSubstring(from: NSRange(location: result.length - 1, length: 1)).string
+        guard lastCharacter != "\n" else { return }
         result.append(NSAttributedString(string: "\n"))
     }
 
@@ -234,6 +315,71 @@ struct GMarkHTMLSanitizer {
             return String(attributes[Range(match.range(at: index), in: attributes)!])
         }
         return nil
+    }
+
+    private static func parseTextStyle(_ raw: String, allowsParagraphSpacing: Bool) -> TextStyle {
+        var style = TextStyle()
+        for declaration in raw.split(separator: ";") {
+            guard let separator = declaration.firstIndex(of: ":") else { continue }
+            let name = declaration[..<separator].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let value = declaration[declaration.index(after: separator)...]
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            switch name {
+            case "font-size":
+                if let size = pixelValue(value), (8...72).contains(size) { style.fontSize = size }
+            case "color":
+                style.color = hexColor(value)
+            case "font-weight":
+                if value == "bold" || value == "bolder" || (Int(value) ?? 0) >= 600 {
+                    style.bold = true
+                } else if value == "normal" || value == "400" { style.bold = false }
+            case "font-style":
+                if value == "italic" || value == "oblique" { style.italic = true }
+                else if value == "normal" { style.italic = false }
+            case "margin-bottom":
+                if allowsParagraphSpacing, let spacing = pixelValue(value), (0...100).contains(spacing) {
+                    style.paragraphSpacing = spacing
+                }
+            case "margin":
+                guard allowsParagraphSpacing else { continue }
+                let parts = value.split(whereSeparator: \.isWhitespace)
+                guard !parts.isEmpty else { continue }
+                let bottom = parts.count == 1 ? parts[0] : parts.count >= 3 ? parts[2] : parts[0]
+                if let spacing = pixelValue(String(bottom)), (0...100).contains(spacing) {
+                    style.paragraphSpacing = spacing
+                }
+            default:
+                break
+            }
+        }
+        return style
+    }
+
+    private static func pixelValue(_ value: String) -> CGFloat? {
+        guard value.hasSuffix("px"), let number = Double(value.dropLast(2)), number.isFinite else { return nil }
+        return CGFloat(number)
+    }
+
+    private static func hexColor(_ value: String) -> UIColor? {
+        guard value.hasPrefix("#") else { return nil }
+        let hex = String(value.dropFirst())
+        guard hex.count == 3 || hex.count == 6,
+              hex.allSatisfy({ $0.isHexDigit }),
+              let number = UInt32(hex, radix: 16) else { return nil }
+        let red: UInt32
+        let green: UInt32
+        let blue: UInt32
+        if hex.count == 3 {
+            red = ((number >> 8) & 0xF) * 17
+            green = ((number >> 4) & 0xF) * 17
+            blue = (number & 0xF) * 17
+        } else {
+            red = (number >> 16) & 0xFF
+            green = (number >> 8) & 0xFF
+            blue = number & 0xFF
+        }
+        return UIColor(red: CGFloat(red) / 255, green: CGFloat(green) / 255,
+                       blue: CGFloat(blue) / 255, alpha: 1)
     }
 
     private static func decodeEntities(in text: String) -> String {

@@ -16,6 +16,7 @@
 		2B052D042D82B65500BAE956 /* NukeExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 2B052D032D82B65500BAE956 /* NukeExtensions */; };
 		2B052D052D82B70500BAE956 /* markdown in Resources */ = {isa = PBXBuildFile; fileRef = 114640C16E263162F58A1B43 /* markdown */; };
 		2B052D062D82B70500BAE956 /* markdownv2 in Resources */ = {isa = PBXBuildFile; fileRef = 66BC7B35F5F1709820DC6394 /* markdownv2 */; };
+		E40000000000000000000001 /* markdownBookRichTxt in Resources */ = {isa = PBXBuildFile; fileRef = E40000000000000000000002 /* markdownBookRichTxt */; };
 		A00000000000000000000001 /* markdownAcceptanceEmpty in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000005 /* markdownAcceptanceEmpty */; };
 		A00000000000000000000002 /* markdownAcceptanceWhitespace in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* markdownAcceptanceWhitespace */; };
 		A00000000000000000000003 /* markdownAcceptanceLong in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* markdownAcceptanceLong */; };
@@ -44,12 +45,15 @@
 		E10000000000000000000005 /* FormulaSourcePreservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000004 /* FormulaSourcePreservationTests.swift */; };
 		E10000000000000000000006 /* GMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = E1000000000000000000000D /* GMarkdown */; };
 		E1000000000000000000000E /* FormulaModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000000000000000000000F /* FormulaModeTests.swift */; };
+		E50000000000000000000001 /* HTMLSanitizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000002 /* HTMLSanitizerTests.swift */; };
 		E20000000000000000000002 /* ProjectFormulaVisualTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000011 /* ProjectFormulaVisualTests.swift */; };
 		E30000000000000000000002 /* ProjectImageVisualTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30000000000000000000001 /* ProjectImageVisualTests.swift */; };
+		E50000000000000000000003 /* RichTxtVisualTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000004 /* RichTxtVisualTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		114640C16E263162F58A1B43 /* markdown */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdown; sourceTree = "<group>"; };
+		E40000000000000000000002 /* markdownBookRichTxt */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdownBookRichTxt; sourceTree = "<group>"; };
 		2B64E00B2E155290002B71C2 /* markdownLatex */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdownLatex; sourceTree = "<group>"; };
 		2B6C0D2C2E0F0B8A00F6D641 /* RealTimeRenderController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealTimeRenderController.swift; sourceTree = "<group>"; };
 		2B6C0D2E2E0F102900F6D641 /* markdownv5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdownv5; sourceTree = "<group>"; };
@@ -86,9 +90,11 @@
 		E10000000000000000000002 /* GMarkdownExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GMarkdownExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E10000000000000000000004 /* FormulaSourcePreservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormulaSourcePreservationTests.swift; path = ../../Tests/GMarkdownTests/FormulaSourcePreservationTests.swift; sourceTree = SOURCE_ROOT; };
 		E1000000000000000000000F /* FormulaModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormulaModeTests.swift; path = ../../Tests/GMarkdownTests/FormulaModeTests.swift; sourceTree = SOURCE_ROOT; };
+		E50000000000000000000002 /* HTMLSanitizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HTMLSanitizerTests.swift; path = ../../Tests/GMarkdownTests/HTMLSanitizerTests.swift; sourceTree = SOURCE_ROOT; };
 		E10000000000000000000011 /* ProjectFormulaVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProjectFormulaVisualTests.swift; path = ../../Tests/GMarkdownTests/ProjectFormulaVisualTests.swift; sourceTree = SOURCE_ROOT; };
 		E20000000000000000000001 /* GMarkdownExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GMarkdownExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E30000000000000000000001 /* ProjectImageVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProjectImageVisualTests.swift; path = ../../Tests/GMarkdownTests/ProjectImageVisualTests.swift; sourceTree = SOURCE_ROOT; };
+		E50000000000000000000004 /* RichTxtVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RichTxtVisualTests.swift; path = ../../Tests/GMarkdownTests/RichTxtVisualTests.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				2B64E00B2E155290002B71C2 /* markdownLatex */,
+				E40000000000000000000002 /* markdownBookRichTxt */,
 				A00000000000000000000005 /* markdownAcceptanceEmpty */,
 				A00000000000000000000006 /* markdownAcceptanceWhitespace */,
 				A00000000000000000000007 /* markdownAcceptanceLong */,
@@ -162,6 +169,7 @@
 			children = (
 				E10000000000000000000004 /* FormulaSourcePreservationTests.swift */,
 				E1000000000000000000000F /* FormulaModeTests.swift */,
+				E50000000000000000000002 /* HTMLSanitizerTests.swift */,
 			);
 			name = GMarkdownExampleTests;
 			sourceTree = "<group>";
@@ -171,6 +179,7 @@
 			children = (
 				E10000000000000000000011 /* ProjectFormulaVisualTests.swift */,
 				E30000000000000000000001 /* ProjectImageVisualTests.swift */,
+				E50000000000000000000004 /* RichTxtVisualTests.swift */,
 			);
 			name = GMarkdownExampleUITests;
 			sourceTree = "<group>";
@@ -326,6 +335,7 @@
 				BE0810010000000000000005 /* projectBook.jsonl in Resources */,
 				BE0810010000000000000003 /* projectContent.md in Resources */,
 				2B6C0D312E182DA900F6D641 /* markdownTemp in Resources */,
+				E40000000000000000000001 /* markdownBookRichTxt in Resources */,
 				A00000000000000000000001 /* markdownAcceptanceEmpty in Resources */,
 				A00000000000000000000002 /* markdownAcceptanceWhitespace in Resources */,
 				A00000000000000000000003 /* markdownAcceptanceLong in Resources */,
@@ -371,6 +381,7 @@
 			files = (
 				E10000000000000000000005 /* FormulaSourcePreservationTests.swift in Sources */,
 				E1000000000000000000000E /* FormulaModeTests.swift in Sources */,
+				E50000000000000000000001 /* HTMLSanitizerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,6 +391,7 @@
 			files = (
 				E20000000000000000000002 /* ProjectFormulaVisualTests.swift in Sources */,
 				E30000000000000000000002 /* ProjectImageVisualTests.swift in Sources */,
+				E50000000000000000000003 /* RichTxtVisualTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -14,10 +14,10 @@ class MarkdownRenderController: UIViewController {
     private let imageloader = NukeImageLoader()
     private let menuButton = UIButton(type: .system)
     private let containerView = UIView()
-    private var currentMarkdownFile = "markdown"
+    private var currentMarkdownFile = "markdownBookRichTxt"
     private var loadGeneration = 0
     
-    private let markdownFiles = ["markdown", "markdownv2", "markdownv3", "markdownv4", "markdownv5", "markdownLatex", "markdownAcceptanceCodeLanguages", "markdownAcceptanceLongImage", "markdownAcceptanceBoundaries", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
+    private let markdownFiles = ["markdown", "markdownBookRichTxt", "markdownv2", "markdownv3", "markdownv4", "markdownv5", "markdownLatex", "markdownAcceptanceCodeLanguages", "markdownAcceptanceLongImage", "markdownAcceptanceBoundaries", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -54,12 +54,11 @@ class MarkdownRenderController: UIViewController {
         menuButton.layer.shadowRadius = 4
         menuButton.layer.shadowOpacity = 0.1
         menuButton.addTarget(self, action: #selector(showMenu), for: .touchUpInside)
-        view.addSubview(menuButton)
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: menuButton)
         
         // 设置约束
         containerView.translatesAutoresizingMaskIntoConstraints = false
         markdownView.translatesAutoresizingMaskIntoConstraints = false
-        menuButton.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
@@ -72,8 +71,6 @@ class MarkdownRenderController: UIViewController {
             markdownView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             markdownView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
             
-            menuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            menuButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
             menuButton.widthAnchor.constraint(equalToConstant: 40),
             menuButton.heightAnchor.constraint(equalToConstant: 40)
         ])

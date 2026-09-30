@@ -33,4 +33,39 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssertNil(GMarkHTMLSanitizer.applyInlineToken("</script>", to: &state, style: style))
         XCTAssertFalse(state.isIgnoringContent)
     }
+
+    func testEmptyListItemsAndNestedContent() {
+        let source = #"<ul><li></li><li><span>  </span><br></li><li><img alt=""></li><li><img alt="图片"></li><li><ul><li></li></ul></li><li>正文</li></ul>"#
+        let result = GMarkHTMLSanitizer.attributedString(from: source, style: style)
+
+        XCTAssertEqual(result.string, "• 图片\n• 正文\n")
+    }
+
+    func testEditorTextStylesAndBlockOnlySpacing() {
+        let source = #"<p style="font-size:18px;margin-bottom:12px"><span style="font-weight:bold;color:#4F5CE7;margin-bottom:90px">标题</span><span style="font-style:italic">文字</span></p>"#
+        let result = GMarkHTMLSanitizer.attributedString(from: source, style: style)
+
+        XCTAssertEqual(result.string, "标题文字\n")
+        let firstFont = result.attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        XCTAssertEqual(firstFont?.pointSize, 18)
+        XCTAssertTrue(firstFont?.fontDescriptor.symbolicTraits.contains(.traitBold) == true)
+        let secondFont = result.attribute(.font, at: 2, effectiveRange: nil) as? UIFont
+        XCTAssertTrue(secondFont?.fontDescriptor.symbolicTraits.contains(.traitItalic) == true)
+        let paragraph = result.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertEqual(paragraph?.paragraphSpacing, 12)
+        let color = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
+        XCTAssertEqual(color, UIColor(red: 79 / 255, green: 92 / 255, blue: 231 / 255, alpha: 1))
+    }
+
+    func testUnstyledNestedTagDoesNotCloseOuterInlineStyle() {
+        var state = GMarkHTMLSanitizer.InlineState()
+        XCTAssertNil(GMarkHTMLSanitizer.applyInlineToken(#"<span style="color:#4F5CE7">"#, to: &state, style: style))
+        XCTAssertNil(GMarkHTMLSanitizer.applyInlineToken("<span>", to: &state, style: style))
+        XCTAssertNil(GMarkHTMLSanitizer.applyInlineToken("</span>", to: &state, style: style))
+        let inside = GMarkHTMLSanitizer.attributedText(from: "保留颜色", style: style, state: state)
+        XCTAssertEqual(inside.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor,
+                       UIColor(red: 79 / 255, green: 92 / 255, blue: 231 / 255, alpha: 1))
+        XCTAssertNil(GMarkHTMLSanitizer.applyInlineToken("</span>", to: &state, style: style))
+        XCTAssertFalse(state.isInHTMLContext)
+    }
 }

@@ -17,7 +17,7 @@ class MarkdownRenderController: UIViewController {
     private var currentMarkdownFile = "markdownBookRichTxt"
     private var loadGeneration = 0
     
-    private let markdownFiles = ["markdown", "markdownBookRichTxt", "markdownv2", "markdownv3", "markdownv4", "markdownv5", "markdownLatex", "markdownAcceptanceCodeLanguages", "markdownAcceptanceLongImage", "markdownAcceptanceBoundaries", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
+    private let markdownFiles = ["markdown", "markdownBookRichTxt", "editorHTMLDemo", "markdownv2", "markdownv3", "markdownv4", "markdownv5", "markdownLatex", "markdownAcceptanceCodeLanguages", "markdownAcceptanceLongImage", "markdownAcceptanceBoundaries", "markdownAcceptanceEmpty", "markdownAcceptanceWhitespace", "markdownAcceptanceLong", "markdownAcceptanceUnicode", "markdownAcceptanceInvalidFormula", "markdownAcceptanceUnknownCode", "markdownAcceptanceMissingImage"]
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -47,6 +47,7 @@ class MarkdownRenderController: UIViewController {
         
         // 设置菜单按钮
         menuButton.setImage(UIImage(systemName: "text.book.closed"), for: .normal)
+        menuButton.accessibilityLabel = "选择展示示例"
         menuButton.backgroundColor = .systemBackground
         menuButton.layer.cornerRadius = 20
         menuButton.layer.shadowColor = UIColor.black.cgColor
@@ -77,7 +78,7 @@ class MarkdownRenderController: UIViewController {
     }
     
     @objc private func showMenu() {
-        let alert = UIAlertController(title: "选择Markdown文件", message: nil, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "选择展示示例", message: nil, preferredStyle: .actionSheet)
         
         for file in markdownFiles {
             let action = UIAlertAction(title: file, style: .default) { [weak self] _ in
@@ -109,7 +110,8 @@ class MarkdownRenderController: UIViewController {
             return
         }
         
-        let chunks = await parseMarkdown(filecontents)
+        let isHTML = fileName == "markdownBookRichTxt" || fileName == "editorHTMLDemo"
+        let chunks = await parseContent(filecontents, isHTML: isHTML)
 
         await MainActor.run { [weak self] in
             guard let self, self.loadGeneration == generation else { return }
@@ -118,11 +120,15 @@ class MarkdownRenderController: UIViewController {
         }
     }
     
-    private func parseMarkdown(_ content: String) async -> [GMarkChunk] {
+    private func parseContent(_ content: String, isHTML: Bool) async -> [GMarkChunk] {
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 var style = MarkdownStyle.defaultStyle()
                 style.maxContainerWidth = UIScreen.main.bounds.size.width - 32*2
+                if isHTML {
+                    continuation.resume(returning: GMarkHTMLProcessor(style: style).process(html: content))
+                    return
+                }
                 let generator = GMarkChunkGenerator()
                 generator.style = style
                 generator.imageLoader = self.imageloader

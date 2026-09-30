@@ -1,5 +1,39 @@
 # richTxt 展示修复续接记录（2026-09-29）
 
+## 2026-09-30 用户要求的再次 Review
+
+已完成边界、逻辑及架构 Review，详见 [CustomClickableSpanReview.md](./CustomClickableSpanReview.md)。本轮复现并修复重复使用文本 chunk 导致 UIFontMetrics 再次缩放异常；消除同段多标记重复处理；统一虚线样式参数并收窄绘制器入口。用户确认的颜色和间距保持一致。
+
+最终 20 项 HTML 单测 + 2 项 UI 测试通过，检查新增样本及原文章截图；原有 11 个未提交样本哈希一致。结论为有条件通过，限制和证据见 Review 文档。提交状态以 Git 记录为准。
+
+## 2026-09-30 挖空虚线与文字间距
+
+用户要求虚线离文字稍远。新增 `GMarkMarkedTextRenderer`，在 MultiView 文本块中按 MPITextKit 的实际选择区域与整行 used rect 绘制 #4F5CE7 圆点虚线，整行布局框下方留 2 pt。普通下划线不改；源富文本保留原文字、UTF-16 范围及原生下划线回退。标记段落预留至少 5 pt 行间距，末行虚线计入 cell 高度，宽度/字号变化时重建几何。
+
+Review 修复了局部选择区域高度不一致导致虚线错位、跨行选择区域延伸到行尾空白，以及大字号/末行的空间不足。Swift 通过声明既有公开 Objective-C selector 读取选择区域，绕过 MPITextKit umbrella 未导出返回类型的问题；没有修改依赖或替换方法实现。
+
+最终 17 项 HTML 单测及 1 项展示 UI 测试通过，已人工检查截图；范围包含同一行标记对齐、窄宽重排、普通下划线保留、原文范围不变与末行不裁切。证据：`/private/tmp/gmarkdown-cloze-gap-final.xcresult`、`/private/tmp/gmarkdown-cloze-gap-aligned2.xcresult`、`/private/tmp/gmarkdown-cloze-gap-aligned2-attachments`。其他渲染入口不承诺相同间距，未做全设备回归。仍未提交，下一项等用户确认。
+
+## 2026-09-30 挖空下划线样式校正
+
+按用户参考图，将 CustomClickableSpan 下划线改为原生 `single | patternDot`，并单独指定 `underlineColor = #4F5CE7`。文字自身颜色、字号、标记范围不变；普通 u 下划线不受影响。点距和粗细由原生文本引擎决定，未做参考图逐像素复刻。
+
+修改后只读审查未发现新增问题；相关范围/缩放单测与 UI 测试各 1 项通过，并检查模拟器截图。证据：`/private/tmp/gmarkdown-cloze-dots.xcresult`、`/private/tmp/gmarkdown-cloze-dots-attachments`。原有 11 个用户样本哈希未变，仍未提交。
+
+默认无样式正文为 18 pt 系统常规字体、UIColor.label；外层 HTML 样式或调用方 Style 可覆盖，显示字号随 Dynamic Type 缩放。
+
+## 2026-09-30 续接：第 1 项展示能力
+
+用户已授权并完成数字实体、空白/NBSP、dir、CustomClickableSpan 文字/范围/虚线展示。新增 `GMarkHTMLProcessor.process(html:)`，完整 HTML 绕开 Markdown 预处理并复用 GMarkChunk/GMarkdownMultiView。调用方自行选择内容与格式；不读取业务字段，不修改 AIEndorser。
+
+- Demo 原文章及新增合成样本 `editorHTMLDemo` 使用显式 HTML 入口。
+- 完成独立只读 Review，问题修复后再审查；最终 16 项 HTML 单测通过，2 项 UI 测试通过并检查 5 张截图。
+- 本轮结果：`/private/tmp/gmarkdown-editor-html-final.xcresult`（16 项单测）；`/private/tmp/gmarkdown-editor-html-visual.xcresult`（此前 14 项单测 + 2 项 UI）；截图 `/private/tmp/gmarkdown-editor-html-attachments`。临时证据可能过期。
+- 原有 11 个未提交样本保持原样。本轮尚未提交，交付源码副本/校验清单未同步。
+- 待验收边界：尚无完整第二类业务原文及期望截图，未做宿主接入或所有设备回归；行内方向采用原生 embedding，不承诺浏览器完整双向隔离。
+- 接入、标记 UTF-16 范围、分块与降级约定见 `RichTxtHTMLSupportScope.md`、`EditorHTMLImplementationPlan.md`。
+- **停止在第 1 项；下一项须等用户确认。** 以下保留 2026-09-29 的历史记录。
+
 ## 目标与边界
 
 - 当前只在 GMarkdown 组件及 GMarkdownExample 中处理真实文章的富文本展示；**不接入或修改 AIEndorser**。

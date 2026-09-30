@@ -17,6 +17,7 @@
 		2B052D052D82B70500BAE956 /* markdown in Resources */ = {isa = PBXBuildFile; fileRef = 114640C16E263162F58A1B43 /* markdown */; };
 		2B052D062D82B70500BAE956 /* markdownv2 in Resources */ = {isa = PBXBuildFile; fileRef = 66BC7B35F5F1709820DC6394 /* markdownv2 */; };
 		E40000000000000000000001 /* markdownBookRichTxt in Resources */ = {isa = PBXBuildFile; fileRef = E40000000000000000000002 /* markdownBookRichTxt */; };
+		E70000000000000000000001 /* editorHTMLDemo in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000002 /* editorHTMLDemo */; };
 		A00000000000000000000001 /* markdownAcceptanceEmpty in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000005 /* markdownAcceptanceEmpty */; };
 		A00000000000000000000002 /* markdownAcceptanceWhitespace in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* markdownAcceptanceWhitespace */; };
 		A00000000000000000000003 /* markdownAcceptanceLong in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* markdownAcceptanceLong */; };
@@ -54,6 +55,7 @@
 /* Begin PBXFileReference section */
 		114640C16E263162F58A1B43 /* markdown */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdown; sourceTree = "<group>"; };
 		E40000000000000000000002 /* markdownBookRichTxt */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdownBookRichTxt; sourceTree = "<group>"; };
+		E70000000000000000000002 /* editorHTMLDemo */ = {isa = PBXFileReference; lastKnownFileType = text; path = editorHTMLDemo; sourceTree = "<group>"; };
 		2B64E00B2E155290002B71C2 /* markdownLatex */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdownLatex; sourceTree = "<group>"; };
 		2B6C0D2C2E0F0B8A00F6D641 /* RealTimeRenderController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealTimeRenderController.swift; sourceTree = "<group>"; };
 		2B6C0D2E2E0F102900F6D641 /* markdownv5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = markdownv5; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 			children = (
 				2B64E00B2E155290002B71C2 /* markdownLatex */,
 				E40000000000000000000002 /* markdownBookRichTxt */,
+				E70000000000000000000002 /* editorHTMLDemo */,
 				A00000000000000000000005 /* markdownAcceptanceEmpty */,
 				A00000000000000000000006 /* markdownAcceptanceWhitespace */,
 				A00000000000000000000007 /* markdownAcceptanceLong */,
@@ -336,6 +339,7 @@
 				BE0810010000000000000003 /* projectContent.md in Resources */,
 				2B6C0D312E182DA900F6D641 /* markdownTemp in Resources */,
 				E40000000000000000000001 /* markdownBookRichTxt in Resources */,
+				E70000000000000000000001 /* editorHTMLDemo in Resources */,
 				A00000000000000000000001 /* markdownAcceptanceEmpty in Resources */,
 				A00000000000000000000002 /* markdownAcceptanceWhitespace in Resources */,
 				A00000000000000000000003 /* markdownAcceptanceLong in Resources */,

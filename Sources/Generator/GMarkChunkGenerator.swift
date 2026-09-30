@@ -188,13 +188,7 @@ extension NSAttributedString {
 
 extension GMarkChunk {
     func generatorTextRender() {
-//        attributedText = attributedText.addGradientMask(lastCharCount: 5)
-        let attr = attributedText
-        let builder = MPITextRenderAttributesBuilder()
-        builder.attributedText = attr
-        builder.maximumNumberOfLines = 0
-        let renderAttributes = MPITextRenderAttributes(builder: builder)
-        textRender = MPITextRenderer(renderAttributes: renderAttributes, constrainedSize: CGSize(width: style.maxContainerWidth, height: CGFLOAT_MAX))
+        textRender = GMarkMarkedTextRenderer.make(text: attributedText, width: style.maxContainerWidth)
         
         itemSize = CGSize(width: style.maxContainerWidth, height: textRender?.size().height ?? 0.0)
         

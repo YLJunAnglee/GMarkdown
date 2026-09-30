@@ -218,11 +218,13 @@ public class GMarkdownMultiView: UIView {
     // MARK: - Public Methods
     
     public func updateMarkdown(_ items: [GMarkChunk]) {
+        // Capture values: layout can mutate the chunks' hash keys below.
+        let previousItems = Set(dataSource.snapshot().itemIdentifiers.map { [$0.identifier, $0.hashKey] })
         chunks = items
         sourceStyles = Dictionary(uniqueKeysWithValues: items.map { (ObjectIdentifier($0), $0.style) })
-        sourceAttributedTexts = Dictionary(uniqueKeysWithValues: items.map { (ObjectIdentifier($0), $0.attributedText) })
+        sourceAttributedTexts = Dictionary(uniqueKeysWithValues: items.map { (ObjectIdentifier($0), $0.unscaledAttributedText) })
         sourceAttachmentSizes = Dictionary(uniqueKeysWithValues: items.map {
-            (ObjectIdentifier($0), $0.attributedText.attachmentSizes())
+            (ObjectIdentifier($0), $0.unscaledAttributedText.attachmentSizes())
         })
         sourceTables = Dictionary(uniqueKeysWithValues: items.compactMap { item in
             guard let table = item.tableRender?.markTable else { return nil }
@@ -243,6 +245,9 @@ public class GMarkdownMultiView: UIView {
         var snapshot = NSDiffableDataSourceSnapshot<Section, GMarkChunk>()
         snapshot.appendSections([.main])
         snapshot.appendItems(items, toSection: .main)
+        // Equal text and measured size can still carry different colors,
+        // directions or HTML marks. Reconfigure retained item identities too.
+        snapshot.reloadItems(items.filter { previousItems.contains([$0.identifier, $0.hashKey]) })
         dataSource.apply(snapshot, animatingDifferences: false)
         // Content can be supplied after the view has already completed its
         // first layout pass. Re-measure the chunks against the current host

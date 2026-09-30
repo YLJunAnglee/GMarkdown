@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html dir="ltr">
+<head><title>此标题不应进入正文</title></head>
+<body>
+<p style="font-size:20px;color:#4F5CE7;font-weight:bold;margin-bottom:12px">编辑器 HTML 展示验收</p>
+<p style="margin-bottom:12px">字符实体：&#20013;&#25991; &#x1F600;；保留一次解码：&amp;#65;；A&nbsp;B。</p>
+<p style="margin-bottom:12px">原样文字：$5 与 $10，**星号**，```代码符号```。</p>
+<p style="font-size:22px;color:#484D54;margin-bottom:16px">正常文字，<CustomClickableSpan>这里是需要标记的文字，<b>粗体也保留</b>，继续显示到下一行，虚线应跟随文字换行</CustomClickableSpan>。这一句没有虚线。</p>
+<p style="margin-bottom:12px"><CustomClickableSpan>相邻标记一</CustomClickableSpan><CustomClickableSpan>相邻标记二</CustomClickableSpan>，<u>普通实线</u>，<CustomClickableSpan><u>标记内合并为虚线</u></CustomClickableSpan>。</p>
+<p style="margin-bottom:12px">行内方向：左侧 <span dir="rtl">שלום 123</span> 右侧。</p>
+<div dir="auto">
+<p style="margin-bottom:12px">שלום 123 — 自动判断这一段的方向</p>
+
+<p style="margin-bottom:12px">English text inherits the outer RTL direction.</p>
+</div>
+<p dir="ltr">这里恢复从左向右。<CustomClickableSpan>&#x1F600; 中文标记</CustomClickableSpan>，末尾。</p>
+</body>
+</html>

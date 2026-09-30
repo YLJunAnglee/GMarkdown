@@ -1,45 +1,70 @@
 # richTxt HTML 展示范围与后续缺口（2026-09-30）
 
-## 结论与适用范围
+## 结论与接入方式
 
-当前交付的是**受控的文章展示子集**，不是通用 HTML 渲染器。已验收的路径是：将真实导出中的 4 段 `TXT.richTxt` 原样提取为 Demo 文件，交给 `GMarkProcessor + GMarkdownMultiView` 展示。两个独立 `IMG` 块没有可用图片资源，不在样本内。Demo 尚未实现从书籍数据自动执行“`richTxt` 非空优先，否则展示 `txt`”的输入选择规则；这项规则仍属项目接入工作。
+当前实现支持受控的编辑器 HTML 展示子集。GMarkdown 接收调用方传入的字符串；业务自行决定使用 `richTxt`、`txt` 或其他来源，组件不读取业务字段，也不自动切换输入。
 
-本文件记录 2026-09-29 修复后的源码状态。交付目录中较早的 README、项目接入计划和能力对照仍描述修复前快照；对于 richTxt HTML 的当前实现，以本文件和下方源码入口为准。交付源码副本及其校验清单尚未同步。
+完整 HTML 使用显式入口，避免 Markdown 的公式、代码围栏和分段预处理影响 HTML 内容：
 
-当前样本实际出现：`p` 14 个、`span` 72 个、`ul` 6 个、`li` 34 个、`br` 24 个、`u` 17 个；CSS 仅有 `font-size`、`color`、`font-weight`、`font-style`、`margin`。其中 18 个空 `li` 在 HTML 块路径被去除。2026-09-29 的 iPhone 17 / iOS 27 模拟器验证覆盖了 6 项单测及 1 项整篇 UI 测试，7 项通过。以下“已验证”仅指这条路径和这些输入。
+```swift
+let processor = GMarkHTMLProcessor(style: style)
+let chunks = processor.process(html: richText)
+markdownView.updateMarkdown(chunks) // GMarkdownMultiView，主线程更新
+```
+
+Markdown 继续使用原有 `GMarkProcessor` / `GMarkChunkGenerator`。输入格式由调用方指定，不通过字符串内容猜测。新入口输出沿用现有 `GMarkChunk`，没有修改 `ChunkGenerator` 协议。处理器应先配置再调用；不要一边处理一边并发修改其配置。
+
+本文描述仓库 `Sources` 的当前状态。交付目录中的源码副本、校验清单和较早接入文档尚未同步，不能视为本轮更新后的打包产物。
 
 ## 当前行为
 
-| 输入 | `GMarkdownMultiView` 的 HTML 块路径 | 边界与降级 |
+| 输入 | 展示行为 | 边界与降级 |
 | --- | --- | --- |
-| 普通文字、`p`、`div`、`blockquote`、`br` | 保留可读文字与基本换行；HTML 正文使用独立于 Markdown 默认段距的间距。 | 不复刻浏览器布局；空白文本节点会被丢弃，输入若依赖标签之间单独的空格，需另测。 |
-| `ul`、`li` | `li` 显示项目符号；纯空白、仅换行或空图片替代文字的列表项被去除。 | `ol` 没有数字序号支持，会按项目符号展示；嵌套列表没有分级缩进保证。 |
-| `span`、`strong`/`b`、`em`/`i`、`u`、`s`/`del` | 保留对应文字样式；已在真实文章验证粗体、斜体、下划线。 | 仅保证已验证组合；复杂 CSS 继承及混合排版没有完整 HTML 语义保证。 |
-| `sup`、`sub`、`code`、`pre` | 代码中有上/下标与代码字体处理。 | 本轮真实文章没有这些标签，未做视觉验收；`pre` 不保证浏览器式空白保留。 |
-| `style` 中的 `font-size`、`color` | 接受 8–72 px 字号、3/6 位十六进制颜色；不合法值被忽略。 | `rem`、`em`、百分比、命名色、`rgb()` 等均不解析，使用组件默认字体或颜色。 |
-| `font-weight`、`font-style` | 识别粗体/斜体及有限的正常值；粗体支持 `bold`、`bolder`、数值不小于 600，斜体支持 `italic`、`oblique`。 | 其他值被忽略；不承诺完整字体权重映射。 |
-| 块级标签的 `margin`、`margin-bottom` | 仅取合法的 0–100 px 底部段距；行内标签的 `margin` 不改段距。 | 其他方向的 margin、padding、行高、对齐和布局属性均不呈现。 |
-| `<a>` 等未知/未专门处理的标签 | 通常去掉标签、保留可读内部文字。 | 不生成链接或点击行为；`<CustomClickableSpan>` 当前也只保留文字，不保留可交互范围和底部虚线。 |
-| HTML `<img>` | 保留 `alt` 文字（有值时），不使用 `src`。 | 无 `alt` 时没有可见图片内容；不会下载或显示 HTML 图片。独立 `IMG` 块属于项目数据层，未由本样本验证。 |
-| `script`、`style`、`iframe`、`object`、`embed`、`form`、`video`、`audio`、`svg`、`math`、`template` | 标签及其内部内容被丢弃。 | 不执行脚本、嵌入内容或外部资源。 |
-| HTML 实体 | 仅显式解码 `&lt;`、`&gt;`、`&quot;`、`&#39;`、`&amp;`。 | 十进制/十六进制数字字符实体及其他命名实体没有完整解码支持。 |
+| `html`、`body` | 保留正文并继承有限文本样式、方向。 | `head` 及其内容丢弃；不提供浏览器页面布局。 |
+| `p`、`div`、`blockquote`、`br` | 保留可读文字与基本换行，按完整段落设置方向和间距。 | 空段及连续空换行不按浏览器逐一保留。 |
+| 普通空白、NBSP | ASCII 空白跨行内节点折叠，段落首尾排版空白去除；NBSP 保留为 U+00A0。 | 视觉为空的列表项仍去除，含仅 NBSP 的列表项。 |
+| `ul`、`li`、`ol` | `li` 显示项目符号，空列表项去除。 | `ol` 暂无数字序号；嵌套列表不保证分级缩进。 |
+| `span`、`strong`/`b`、`em`/`i`、`u`、`s`/`del` | 保留文字及对应样式。 | 有限样式继承，不承诺完整 CSS。 |
+| `sup`、`sub`、`code`、`pre` | 沿用上/下标与代码字体处理。 | 未做本轮视觉验收；`pre` 不保留浏览器式空白。 |
+| `font-size`、`color` | 接受 8–72 px 字号和 3/6 位十六进制颜色。 | 其他单位、命名色和 `rgb()` 等忽略。 |
+| `font-weight`、`font-style` | 支持 `bold`、`bolder`、不小于 600 的数值、`italic`、`oblique` 和有限正常值。 | 不支持完整字重映射。 |
+| 块级 `margin`、`margin-bottom` | 仅取合法的 0–100 px 底部段距；行内 margin 不改段距。 | 其他 margin、padding、行高与布局属性忽略。 |
+| HTML 实体 | 支持带分号的十进制/十六进制数字实体，以及 `lt`、`gt`、`quot`、`apos`、`amp`、`nbsp`。 | 只解码一次；非法数字码点替换为 U+FFFD，HTML C1 控制字符按映射转换；未知或无分号实体保留原文。 |
+| `dir="ltr/rtl/auto"` | 段落方向按作用域继承；auto 使用整个元素的首个强方向字符，跳过另有方向的子元素，无强方向字符时采用 LTR。行内方向单独应用。 | 行内使用原生 writingDirection embedding，不承诺浏览器完整双向隔离语义；不注入隐形控制字符。 |
+| `CustomClickableSpan` | 保留可见文字、标记范围与底部 #4F5CE7 点状虚线，虚线随文字自动折行，在 MultiView 文本块中于整行文字布局框下方留 2 pt 间距；标记内普通下划线合并为虚线，文字颜色保持原样。 | 不提供点击、隐藏/恢复、业务 ID。范围约定见下节。 |
+| `<a>` 等未专门支持的标签 | 去掉标签，保留可读内部文字。 | 不生成链接或点击行为。 |
+| HTML `<img>` | 保留 `alt`（有值时），不使用 `src`。 | 不下载图片；无 alt 时不可见。本轮没有新增图片或失败通知能力。 |
+| `script`、`style`、`iframe`、`object`、`embed`、`form`、`video`、`audio`、`svg`、`math`、`template` | 丢弃对应标签和内容，不执行或加载资源。 | 解析器面向受控编辑器输出，不是通用浏览器 DOM 或 HTML 安全清洗接口。 |
 
-上述实现位于 [`GMarkHTMLSanitizer.swift`](../../Sources/Visitor/Helpers/GMarkHTMLSanitizer.swift)。它不是严格 HTML 解析器；残缺标签、特殊空白、复杂嵌套以及浏览器布局不能按完整 HTML 规范推断结果。
+## 标记、分块与异常输入约定
 
-## 渲染入口差异
+- 标记通过 `NSAttributedString.Key.gmarkCustomClickableSpan` 暴露，值是 String；用 `enumerateAttribute` 可读取。范围是**最终 chunk 富文本的 UTF-16 坐标**，不对应源 HTML 偏移。
+- 标记 ID 仅在一次解析内有效。嵌套标记使用外层 ID，相邻标记分别生成 ID；相同 ID 可能因 `<br>` 或分块形成多个范围。换行符不属于标记。
+- 文本解码、空白折叠先完成，再生成属性范围；emoji 不按 Swift Character 数量计算 NSRange。不插入额外方向控制字符，保证显示字符串与范围一致。
+- 段落边界关闭未闭合的行内标签。完整 HTML 使用有限元素树，深度上限 128；超过上限降级处理，不承诺异常嵌套的浏览器恢复结果。
+- 分块长度默认 2000 UTF-16 单元，为软上限；单段过长时保留整个段落，不截断字符。HTML `<br>` 输出原生换行，可成为分块边界。超长单段的布局成本仍由原生文本引擎承担。
+- MultiView 文本块按 MPITextKit 实际排版区域单独绘制标记虚线；只在渲染副本中替换原生标记下划线，并为标记段落预留至少 5 pt 行间距、为末行预留绘制高度。源富文本的文字/范围保持不变；其他渲染入口仍使用原生下划线回退。
+- 同文档、同文字与尺寸但仅样式变化时，页面会重新配置已有条目，避免颜色、方向或标记更新后仍显示旧内容。
 
-| 入口 | 现状 | 验收结论 |
-| --- | --- | --- |
-| `GMarkdownMultiView` 的 HTML 块 | 使用共享清理器；真实文章样本和整篇 UI 已验证。 | 本轮正式验收路径。 |
-| `GMarkdownMultiView` 的行内 HTML | 使用共享状态处理行内标签及相邻文本；已有针对样式栈的单测。 | 尚未用独立的真实行内 HTML 文章做整页视觉验收。 |
-| `MarkdownTextView` 的 HTML 块 | 使用同一清理器。 | 没有本轮整页视觉验收。 |
-| `MarkdownTextView` 的行内 HTML | 仍由旧插件直接输出原始标签文本。 | **不具备与 `GMarkdownMultiView` 一致的受控 HTML 展示能力**；需要单独修复和回归。 |
+## 验证范围
 
-## 后续开发顺序
+- 原文章样本 `markdownBookRichTxt` 保持不变：来自真实导出的 4 段 `TXT.richTxt`；两个缺少资源的独立 `IMG` 块没有加入。
+- 新增 `editorHTMLDemo` 合成样本，覆盖数字实体、NBSP、Markdown 字面字符、跨行标记、普通下划线、相邻标记与方向继承。
+- iPhone 17 / iOS 27 Simulator：最终 20 项 HTML 单测通过；另有 2 项 UI 测试通过，并人工检查原文章首/中/末屏及新样本截图。最后一轮 Review 修复重复使用 chunk 的字体二次缩放异常，并统一样式参数、消除重复段落处理，复跑了全部 20 项 HTML 单测及 2 项 UI 测试。
+- 单测覆盖一次解码、非法数字、UTF-16/emoji 范围、跨 br/分块标记、方向继承与 auto、精确属性名、注释、闭合恢复、深层输入、字号缩放、空列表图片降级回调及同身份样式刷新。
+- 完整第二类业务原文及期望截图尚未取得；合成样本验证不能替代其最终业务视觉验收。未在所有系统版本和设备上回归。
 
-1. **先补现有业务契约已提出的缺口，再考虑扩展通用标签。** 已给出的另一类编辑器样本含 `<html>`、`<body>`、数字字符实体、`dir` 和 `<CustomClickableSpan>`。其中 `html/body` 的文字可读，但数字实体、方向样式和自定义标记范围/虚线尚不满足契约。应取得可复现的脱敏原文和期望画面，逐项实现并测试。
-2. **完成项目输入与降级契约。** 在数据适配层实现 `richTxt` 非空优先、否则 `txt` 的规则。组件现有 `GMarkChunkGenerator.onRenderIssue` 已报告部分公式与图片降级，异步图片失败需加载器实现 `GMarkReportingImageLoader`；HTML 解析失败尚无完整事件，宿主接入和真实页面回归也未完成。独立图片沿用项目自定义 Cell 方案，但需有图片资源和失败预期才能验收。
-3. **按需要统一渲染入口。** 若项目会使用 `MarkdownTextView` 展示行内 HTML，先修复其旧插件路径并做一致性回归；若只使用 `GMarkdownMultiView`，以实际入口为验收基准。
-4. **新标签或 CSS 由真实数据驱动。** 对每种新输入记录原文、所属字段、目标画面、缺失资源和可接受降级，再增加最小实现及回归。`ol` 编号、复杂嵌套、更多颜色/单位、链接与图片加载等，都不因“HTML”名称而自动纳入当前承诺。
+## 入口差异与暂缓工作
 
-本清单用于确定现阶段能力和后续投入，不表示上述待办已经开发或验收。业务契约原文见 [`ProjectIntegrationCapabilityGap.md`](./ProjectIntegrationCapabilityGap.md)；本轮修复与证据见 [`RichTxtRenderHandoff.md`](./RichTxtRenderHandoff.md)。
+| 入口 | 当前范围 |
+| --- | --- |
+| `GMarkHTMLProcessor` → `GMarkdownMultiView` | 本轮完整 HTML 的正式验证路径；Demo 两个 HTML 样本均使用此入口。 |
+| Markdown 中的 HTMLBlock | 使用共享清理器，但 Markdown 分段可能拆开 HTML 上下文；完整 HTML 应使用显式入口。 |
+| `GMarkdownMultiView` 的 Markdown 行内 HTML | 保留共享样式处理；没有承诺跨 Markdown 块的 HTML 状态或完整 auto 方向。 |
+| `MarkdownTextView` 的行内 HTML | 旧插件仍直接输出原始标签文本，入口统一本轮暂缓。 |
+
+本轮仅完成用户确认的第 1 项展示能力。宿主工程接入、图片/新增失败通知、MarkdownTextView 入口统一均未开展；点击隐藏/恢复、更多标签和 CSS 也不在范围。后续工作等待用户确认。
+
+实现约定见 [EditorHTMLImplementationPlan.md](./EditorHTMLImplementationPlan.md)，历史修复与续接记录见 [RichTxtRenderHandoff.md](./RichTxtRenderHandoff.md)。
+
+本轮独立审查、问题复现与架构说明见 [CustomClickableSpanReview.md](./CustomClickableSpanReview.md)。

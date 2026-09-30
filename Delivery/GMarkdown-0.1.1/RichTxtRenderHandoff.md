@@ -1,5 +1,7 @@
 # richTxt 展示修复续接记录（2026-09-29）
 
+> 2026-09-30 当前决策与下一会话操作见 [NextSessionHandoff.md](./NextSessionHandoff.md)。本文以下各节保留实施时的历史记录；其中“尚未提交”等表述描述当时状态。展示实现后来已提交为 `5be60d3`，当前阶段不再追加 Demo 验证，下一步是整理 0.1.1 交付包。
+
 ## 2026-09-30 用户要求的再次 Review
 
 已完成边界、逻辑及架构 Review，详见 [CustomClickableSpanReview.md](./CustomClickableSpanReview.md)。本轮复现并修复重复使用文本 chunk 导致 UIFontMetrics 再次缩放异常；消除同段多标记重复处理；统一虚线样式参数并收窄绘制器入口。用户确认的颜色和间距保持一致。

@@ -14,7 +14,7 @@ markdownView.updateMarkdown(chunks) // GMarkdownMultiView，主线程更新
 
 Markdown 继续使用原有 `GMarkProcessor` / `GMarkChunkGenerator`。输入格式由调用方指定，不通过字符串内容猜测。新入口输出沿用现有 `GMarkChunk`，没有修改 `ChunkGenerator` 协议。处理器应先配置再调用；不要一边处理一边并发修改其配置。
 
-本文描述仓库 `Sources` 的当前状态。交付目录中的源码副本、校验清单和较早接入文档尚未同步，不能视为本轮更新后的打包产物。
+本文描述仓库 `Sources/` 及已同步的 0.1.1 候选交付源码；交付包尚未冻结或发布。早期接入计划保留历史状态，当前使用本文件和 `Integration.md`。
 
 ## 当前行为
 
@@ -38,7 +38,7 @@ Markdown 继续使用原有 `GMarkProcessor` / `GMarkChunkGenerator`。输入格
 
 ## 标记、分块与异常输入约定
 
-- 标记通过 `NSAttributedString.Key.gmarkCustomClickableSpan` 暴露，值是 String；用 `enumerateAttribute` 可读取。范围是**最终 chunk 富文本的 UTF-16 坐标**，不对应源 HTML 偏移。
+- 标记使用属性键 `NSAttributedString.Key("GMark.CustomClickableSpan")`，值是 String；宿主可用 `enumerateAttribute` 读取。范围是**最终 chunk 富文本的 UTF-16 坐标**，不对应源 HTML 偏移。
 - 标记 ID 仅在一次解析内有效。嵌套标记使用外层 ID，相邻标记分别生成 ID；相同 ID 可能因 `<br>` 或分块形成多个范围。换行符不属于标记。
 - 文本解码、空白折叠先完成，再生成属性范围；emoji 不按 Swift Character 数量计算 NSRange。不插入额外方向控制字符，保证显示字符串与范围一致。
 - 段落边界关闭未闭合的行内标签。完整 HTML 使用有限元素树，深度上限 128；超过上限降级处理，不承诺异常嵌套的浏览器恢复结果。

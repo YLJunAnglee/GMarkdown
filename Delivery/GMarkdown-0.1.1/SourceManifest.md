@@ -1,6 +1,6 @@
 # 源码与资源交付清单
 
-这是 0.1.1 候选版本的交付清单。组件源码、锁定 revision 的依赖源码、资源和许可证已复制到本目录；`Checksums.sha256` 于 2026-09-24 按当前目录重新生成，用于完整性核对，但候选版本尚未冻结，不能用仓库路径或旧提交代替。
+这是 0.1.1 候选版本的交付清单。2026-10-04 已将仓库提交 `f5a71c8c29918fb83becfc961993cc69c4e58f7a` 的 `Sources/` 全量同步到本目录，包含展示实现提交 `5be60d3a14def6f83181ee8542b7d62c9214ddd0`。组件源码、锁定 revision 的依赖源码、资源和许可证均在本目录；`Checksums.sha256` 记录本轮候选内容完整性。候选尚未冻结或发布。
 
 ## 组件源码
 
@@ -10,12 +10,13 @@
 - `Sources/Parser/`
 - `Sources/Render/`
 - `Sources/Visitor/`
+- 新增公开入口 `Sources/Parser/GMarkHTMLProcessor.swift`、Markdown 失败/降级事件 `Sources/Render/GMarkRenderIssue.swift`；HTML 标记解析与 MultiView 虚线绘制所需文件均在上述目录内。
 - `Package.swift`（仅用于验证交付源码和本地依赖能独立构建；不改变源码文件夹接入契约）
 
 ## 组件资源
 
 - `Sources/Assets/Highlighter/highlight.min.js`
-- `Sources/Assets/styles/` 中实际启用的默认浅色/深色代码主题
+- `Sources/Assets/styles/` 的 90 个代码主题资源，包含默认浅色 `github-gist` 与深色 `dark`；交付包验证清单以 `.process` 将 CSS 放到资源 bundle 根目录，匹配高亮器的查找路径
 
 Mermaid 执行资源、HTML/WebView 预览资源不应出现在首发交付目录。
 
@@ -29,17 +30,20 @@ Mermaid 执行资源、HTML/WebView 预览资源不应出现在首发交付目�
 - `highlight.js` 9.13.1 资源（`Sources/Assets/Highlighter/highlight.min.js`）与 BSD 3-Clause 许可证
 - `Licenses/` 中逐项保存许可证和来源 URL
 
-本候选目录已包含 `Sources/`、`Dependencies/`、`Licenses/` 和组件资源。依赖目录按锁定 revision 复制；源码文件夹接入不要求这些依赖仓库的 Package manifest，但本目录的验证清单会使用它们检查依赖图。许可证范围和资源包已核对；真机性能/内存基线仍不在本候选的声明范围内。
+本候选目录已包含 `Sources/`、`Dependencies/`、`Licenses/` 和组件资源。依赖清单的 revision 与仓库 `Package.resolved` 一致；本轮核对了目录、许可证、哈希和构建，未重新向第三方仓库溯源每份依赖源码。源码文件夹接入不要求这些依赖仓库的 Package manifest，但本目录的验证清单会使用它们检查依赖图。真机性能/内存基线不在本候选的声明范围内。
 
-## 交付前生成
+## 本轮候选记录
 
 ```text
-候选提交：冻结前待写入
+候选仓库提交：f5a71c8c29918fb83becfc961993cc69c4e58f7a（展示实现 5be60d3a14def6f83181ee8542b7d62c9214ddd0）
 版本：GMarkdown-0.1.1
+组件源码与资源：162 个文件，和仓库 Sources/ 逐文件一致
+依赖与许可证：5 个依赖源码目录；8 份许可证文件
 文件总数：以 Checksums.sha256 条目为准（不含清单自身）
-资源总大小：已随当前候选目录收集，待版本冻结时确认
-哈希清单生成时间：2026-09-24（当前规划基线，非冻结版本）
-Release 构建产物：iOS 15 Simulator target 已通过
-最小宿主构建产物：独立最小宿主 Debug/Release 已通过
+哈希清单生成时间：2026-10-04（候选完整性记录，非冻结版本）
+交付包构建：iOS 15 Simulator Debug/Release 均通过（Xcode 27.0；资源清单修正后重建）
+最小宿主构建：Examples/MinimalHost iOS 15 Simulator Debug/Release 均通过（使用修正后的交付包）
+资源核对：Debug/Release 产物均包含 90 个根目录 CSS 主题及 highlight.min.js
+构建警告：第三方依赖的弃用/Sendable 警告与组件现有 Sendable/弃用等警告；无构建错误
 真机基线报告：待补
 ```

@@ -183,6 +183,7 @@ struct DefaultFontStyle: FontStyle {
 /// Applies the system Dynamic Type scale while preserving the host's font
 /// family, weight, and italic traits.
 struct DynamicTypeFontStyle: FontStyle {
+    let base: FontStyle
     var current: UIFont
     var h1: UIFont
     var h2: UIFont
@@ -195,6 +196,9 @@ struct DynamicTypeFontStyle: FontStyle {
     var quoteFont: UIFont
 
     init(base: FontStyle, compatibleWith traitCollection: UITraitCollection) {
+        // Reusing prepared chunks must not feed scaled fonts back to UIFontMetrics.
+        let base = (base as? DynamicTypeFontStyle)?.base ?? base
+        self.base = base
         let metrics = UIFontMetrics.default
         func scale(_ font: UIFont) -> UIFont {
             metrics.scaledFont(for: font, compatibleWith: traitCollection)

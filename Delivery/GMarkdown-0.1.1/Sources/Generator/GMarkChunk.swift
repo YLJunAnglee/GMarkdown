@@ -45,6 +45,16 @@ public final class GMarkChunk: Hashable, Sendable {
     
     /// The attributed text representation of the chunk.
     public var attributedText: NSAttributedString = NSAttributedString(string: "")
+
+    private var dynamicTypeBaseText: NSAttributedString?
+    private var dynamicTypeRenderedText: NSAttributedString?
+
+    /// Recover the source of our last scaling pass when a host reuses this chunk.
+    /// A newly assigned attributed string is new input, even if its text is equal.
+    var unscaledAttributedText: NSAttributedString {
+        if attributedText === dynamicTypeRenderedText, let base = dynamicTypeBaseText { return base }
+        return attributedText
+    }
     
     /// The text renderer for the chunk.
     public var textRender: MPITextRenderer?
@@ -234,10 +244,16 @@ extension GMarkChunk {
         switch chunkType {
         case .Text, .Code:
             if let baseAttributedText {
-                attributedText = baseAttributedText.scaledFonts(
+                let rendered = baseAttributedText.scaledFonts(
                     compatibleWith: traitCollection,
                     baseAttachmentSizes: baseAttachmentSizes
                 )
+                dynamicTypeBaseText = baseAttributedText
+                // Publish an immutable snapshot so identity can safely distinguish
+                // our derived display text from freshly assigned host content.
+                let snapshot = NSAttributedString(attributedString: rendered)
+                dynamicTypeRenderedText = snapshot
+                attributedText = snapshot
             }
             if chunkType == .Text {
                 generatorTextRender()

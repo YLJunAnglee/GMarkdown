@@ -29,7 +29,7 @@ let package = Package(
             path: "Sources",
             resources: [
                 .copy("Assets/Highlighter/highlight.min.js"),
-                .copy("Assets/styles"),
+                .process("Assets/styles"),
             ]
         ),
         .target(

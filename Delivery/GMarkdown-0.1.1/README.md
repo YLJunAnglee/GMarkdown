@@ -1,8 +1,8 @@
 # GMarkdown 0.1.1 交付目录（候选）
 
-状态：**仓库源码的基础展示功能已完成，0.1.1 交付包尚待同步整理；真实项目尚未接入，未声明 L1/L2**。下次开机后的工作入口见 [NextSessionHandoff.md](./NextSessionHandoff.md)。
+状态：**已提交的组件源码已同步到 0.1.1 候选交付包；真实项目尚未接入，未声明 L1/L2，也未冻结或发布**。[NextSessionHandoff.md](./NextSessionHandoff.md) 保留整理前的历史交接记录。
 
-本目录目前是旧候选基线，首发分发方式计划为源码文件夹。仓库 `Sources/` 中的 `richTxt` 与 `CustomClickableSpan` 展示实现已提交，但尚未同步到本目录；现有哈希和历史构建结果不能证明更新后的交付包可用。真机 Release 性能/内存和 iOS 15 实机运行未测，因此不声明 L1/L2。
+首发分发方式计划为源码文件夹。仓库 `Sources/` 中已提交的受控编辑器 HTML 与 `CustomClickableSpan` 展示实现已同步到本目录的 `Sources/`。业务自行选择 `richTxt` 或 `txt` 输入；组件不读取业务字段。交付包状态与本轮检查结果见 [SourceManifest.md](./SourceManifest.md)。真机 Release 性能/内存和 iOS 15 实机运行未测，因此不声明 L1/L2。
 
 ## 目录组成
 
@@ -14,8 +14,8 @@
 - `ProjectIntegrationCapabilityGap.md`：业务方已确认的输入、富文本和降级要求与组件能力对照。
 - `SourceManifest.md`：应随版本交付的源码、依赖、资源和许可证清单。
 - `CHANGELOG.md`：本候选版本变更与已知限制。
-- `Checksums.sha256`：冻结候选内容的 SHA-256 完整性清单。
+- `Checksums.sha256`：当前候选内容的 SHA-256 完整性清单；不代表已冻结。
 
-当前已知证据：旧交付源码及本地依赖此前通过 iOS 15 Simulator Debug/Release 独立构建；仓库源码的 HTML 展示与挖空标签 Review 及测试见 [CustomClickableSpanReview.md](./CustomClickableSpanReview.md)。两类证据对应不同源码快照，不能合并为更新后交付包的验证结果。目录内较早的项目计划和能力差距表记录当时状态；当前决策以 [NextSessionHandoff.md](./NextSessionHandoff.md) 为准。
+仓库源码的 HTML 展示与标记 Review 及历史测试见 [CustomClickableSpanReview.md](./CustomClickableSpanReview.md)。本轮交付检查只编译和核对已同步源码，没有重复 Demo 验证。目录内较早的项目计划和能力差距表是当时状态记录；当前展示范围以 [RichTxtHTMLSupportScope.md](./RichTxtHTMLSupportScope.md) 为准。
 
-组件源码与第三方依赖在候选冻结时从仓库复制到本目录的 `Sources/`、`Dependencies/` 和 `Licenses/`；组件资源随 `Sources/Assets/` 交付。版本哈希暂不视为冻结；本次文档更新及后续源码同步后，均须在交付整理结束时重新生成哈希清单。下一步先整理交付包，真实项目接入随后进行。
+组件源码、锁定的第三方依赖、许可证和 `Sources/Assets/` 资源均随本目录交付。`Checksums.sha256` 用于当前候选目录的完整性核对，不代表版本冻结。下一步真实项目接入须另行确认。

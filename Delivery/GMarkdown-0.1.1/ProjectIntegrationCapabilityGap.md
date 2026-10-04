@@ -1,5 +1,7 @@
 # 项目接入需求与 GMarkdown 能力对照（2026-09-29）
 
+> 历史能力差距记录：下表的“组件缺口”是 2026-09-29 的判断。仓库已实现受控 `richTxt` 展示、`CustomClickableSpan` 范围与虚线，以及 Markdown 路径可识别的失败/降级通知；源码已同步至候选交付包。当前行为见 [RichTxtHTMLSupportScope.md](./RichTxtHTMLSupportScope.md) 和 [Integration.md](./Integration.md)。业务输入选择、点击/隐藏/恢复、真实页面接入仍待后续确认。
+
 本表以业务方口述的目标工程要求、Demo「项目书籍测试」的导出数据和当前组件代码为依据。它用于决定接入前要实现什么；不把 Demo 功能回归重复列为待办。目标业务工程源码尚未提供，因此页面列表结构和现有 Cell 接口仍须在实际接入时核对。
 
 ## 已确认的项目契约

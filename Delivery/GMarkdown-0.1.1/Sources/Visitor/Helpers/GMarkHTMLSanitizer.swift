@@ -1,240 +1,392 @@
-//
-//  GMarkHTMLSanitizer.swift
-//  GMarkdown
-//
-//  The first-release HTML policy is intentionally display-only. This is not an
-//  HTML renderer: attributes are never interpreted, URLs are never emitted and
-//  embedded/executable containers are removed with their contents.
-//
-
 import Foundation
 import UIKit
 
+public extension NSAttributedString.Key {
+    /// String ID of a display-only mark. Ranges are UTF-16 offsets in this
+    /// attributed string, not source HTML. IDs are local to a parse operation.
+    static let gmarkCustomClickableSpan = NSAttributedString.Key("GMark.CustomClickableSpan")
+}
+
+/// Shared styles for editor HTML. Full documents use a bounded element tree
+/// and paragraph assembly; Markdown InlineHTML uses scoped style frames.
 struct GMarkHTMLSanitizer {
+    fileprivate struct TextStyle {
+        var fontSize: CGFloat?
+        var color: UIColor?
+        var bold: Bool?
+        var italic: Bool?
+        var paragraphSpacing: CGFloat?
+        var underline = false
+        var strike = false
+        var superscript = false
+        var subscriptText = false
+        var code = false
+        var mark: String?
+        var direction: NSWritingDirection?
+        var inlineDirections: [Int] = []
+    }
+
+    fileprivate struct Frame {
+        let tag: String
+        let style: TextStyle
+        let hasExplicitStyle: Bool
+    }
+
     struct InlineState {
-        fileprivate var ignoredDepth = 0
-        fileprivate var boldDepth = 0
-        fileprivate var italicDepth = 0
-        fileprivate var underlineDepth = 0
-        fileprivate var strikeDepth = 0
-        fileprivate var superscriptDepth = 0
-        fileprivate var subscriptDepth = 0
-        fileprivate var codeDepth = 0
-
-        var isIgnoringContent: Bool { ignoredDepth > 0 }
-    }
-
-    private enum TokenAction {
-        case none
-        case lineBreak
-        case listItem
-        case imageFallback(String)
-    }
-
-    private static let discardedContainers: Set<String> = [
-        "script", "style", "iframe", "object", "embed", "form", "video", "audio", "svg", "math", "template"
-    ]
-
-    static func attributedString(from rawHTML: String, style: Style) -> NSMutableAttributedString {
-        let result = NSMutableAttributedString()
-        var state = InlineState()
-        var textStart = rawHTML.startIndex
-        var index = rawHTML.startIndex
-
-        func appendText(_ text: String) {
-            guard !state.isIgnoringContent, !text.isEmpty else { return }
-            let decoded = decodeEntities(in: text)
-            // HTML indentation/newline-only nodes are formatting, not readable
-            // content. Dropping them prevents source indentation from becoming
-            // large visual gaps after paragraph styling is applied.
-            guard !decoded.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty else { return }
-            result.append(attributedText(from: decoded, style: style, state: state))
+        fileprivate var frames: [Frame] = []
+        fileprivate var ignoredTag: String?
+        fileprivate var markSequence = 0
+        fileprivate let scope = UUID().uuidString
+        var isIgnoringContent: Bool { ignoredTag != nil }
+        // Preserve Markdown paragraph spacing for unstyled inline tags.
+        // Complete HTML rendering explicitly opts into HTML paragraph rules.
+        var isInHTMLContext: Bool { frames.contains { $0.hasExplicitStyle } }
+        fileprivate var current: TextStyle { frames.last?.style ?? TextStyle() }
+        fileprivate var paragraph: TextStyle {
+            frames.last(where: { GMarkHTMLTokens.blocks.contains($0.tag) || GMarkHTMLTokens.contexts.contains($0.tag) })?.style ?? TextStyle()
         }
 
-        while index < rawHTML.endIndex {
-            guard rawHTML[index] == "<" else {
-                index = rawHTML.index(after: index)
-                continue
-            }
+        fileprivate mutating func close(_ name: String) {
+            if let index = frames.lastIndex(where: { $0.tag == name }) { frames.removeSubrange(index...) }
+        }
 
-            guard let tagEnd = endOfTag(startingAt: index, in: rawHTML) else {
-                index = rawHTML.index(after: index)
-                continue
+        fileprivate mutating func push(_ tag: GMarkHTMLTokens.Tag, autoDirection: NSWritingDirection? = nil) {
+            var value = current
+            let block = GMarkHTMLTokens.blocks.contains(tag.name) || GMarkHTMLTokens.contexts.contains(tag.name)
+            if block {
+                value.paragraphSpacing = nil
+                value.inlineDirections = []
+                value.mark = nil
             }
-            appendText(String(rawHTML[textStart..<index]))
-
-            let token = String(rawHTML[index...tagEnd])
-            switch apply(token: token, to: &state) {
-            case .lineBreak:
-                appendLineBreak(to: result)
-            case .listItem:
-                appendLineBreak(to: result)
-                if !state.isIgnoringContent {
-                    result.append(attributedText(from: "• ", style: style, state: state))
+            switch tag.name {
+            case "strong", "b": value.bold = true
+            case "em", "i": value.italic = true
+            case "u": value.underline = true
+            case "s", "del": value.strike = true
+            case "sup": value.superscript = true; value.subscriptText = false
+            case "sub": value.subscriptText = true; value.superscript = false
+            case "code", "pre": value.code = true
+            case "customclickablespan":
+                if value.mark == nil {
+                    markSequence += 1
+                    value.mark = "\(scope)-\(markSequence)"
                 }
-            case let .imageFallback(alt):
-                guard !state.isIgnoringContent, !alt.isEmpty else { break }
-                result.append(attributedText(from: decodeEntities(in: alt), style: style, state: state))
-            case .none:
-                break
+            default: break
             }
-
-            index = rawHTML.index(after: tagEnd)
-            textStart = index
+            if let raw = tag.attributes["style"] {
+                let css = parseTextStyle(raw, allowsParagraphSpacing: block)
+                if let v = css.fontSize { value.fontSize = v }
+                if let v = css.color { value.color = v }
+                if let v = css.bold { value.bold = v }
+                if let v = css.italic { value.italic = v }
+                if let v = css.paragraphSpacing { value.paragraphSpacing = v }
+            }
+            let direction: NSWritingDirection?
+            switch tag.attributes["dir"]?.lowercased() {
+            case "ltr": direction = .leftToRight
+            case "rtl": direction = .rightToLeft
+            case "auto": direction = autoDirection
+            default: direction = nil
+            }
+            if let direction {
+                if block { value.direction = direction }
+                else { value.inlineDirections.append(direction.rawValue | NSWritingDirectionFormatType.embedding.rawValue) }
+            }
+            frames.append(Frame(tag: tag.name, style: value, hasExplicitStyle: tag.attributes["style"] != nil))
         }
-        appendText(String(rawHTML[textStart...]))
-        return result
     }
 
-    /// Applies one InlineHTML token to the visitor state. The caller renders
-    /// ordinary Markdown Text only while `isIgnoringContent` is false.
-    static func applyInlineToken(_ rawHTML: String, to state: inout InlineState, style: Style) -> NSAttributedString? {
-        let action = apply(token: rawHTML, to: &state)
-        switch action {
-        case .none:
+    private final class Node {
+        let tag: GMarkHTMLTokens.Tag?
+        let text: String?
+        var children: [Node] = []
+        var firstStrong: NSWritingDirection?
+        init(tag: GMarkHTMLTokens.Tag? = nil, text: String? = nil) {
+            self.tag = tag
+            self.text = text
+        }
+
+        func resolveDirection() {
+            let visibleText = text ?? (tag?.name == "img" ? tag?.attributes["alt"] : nil)
+            firstStrong = visibleText.flatMap { GMarkHTMLTokens.firstStrongDirection($0) }
+            for child in children {
+                child.resolveDirection()
+                let dir = child.tag?.attributes["dir"]?.lowercased()
+                if firstStrong == nil, dir != "ltr", dir != "rtl", dir != "auto" {
+                    firstStrong = child.firstStrong
+                }
+            }
+        }
+
+        var hasVisibleContent: Bool {
+            if let text { return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            if tag?.name == "img" {
+                return !(tag?.attributes["alt"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            return children.contains { $0.hasVisibleContent }
+        }
+    }
+
+    private static func parse(_ html: String) -> Node {
+        let root = Node()
+        var stack = [root]
+        GMarkHTMLTokens.scan(html) { token in
+            switch token {
+            case let .text(text):
+                stack.last?.children.append(Node(text: GMarkHTMLTokens.decode(text)))
+            case let .tag(tag):
+                if GMarkHTMLTokens.discarded.contains(tag.name) { return }
+                if tag.closing {
+                    if let index = stack.lastIndex(where: { $0.tag?.name == tag.name }), index > 0 {
+                        stack.removeSubrange(index...)
+                    }
+                    return
+                }
+                if GMarkHTMLTokens.blocks.contains(tag.name) {
+                    // New blocks close unfinished inline scopes. Entering a nested
+                    // list retains the enclosing list item.
+                    if let p = stack.lastIndex(where: { $0.tag?.name == "p" }) { stack.removeSubrange(p...) }
+                    if tag.name == "li",
+                       let li = stack.lastIndex(where: { $0.tag?.name == "li" }),
+                       !stack[(li + 1)...].contains(where: { ["ul", "ol"].contains($0.tag?.name ?? "") }) {
+                        stack.removeSubrange(li...)
+                    }
+                    while stack.count > 1, let name = stack.last?.tag?.name,
+                          !GMarkHTMLTokens.blocks.contains(name), !GMarkHTMLTokens.contexts.contains(name) {
+                        stack.removeLast()
+                    }
+                }
+                let node = Node(tag: tag)
+                stack.last?.children.append(node)
+                if !tag.selfClosing, !GMarkHTMLTokens.voids.contains(tag.name), stack.count < 128 { stack.append(node) }
+            }
+        }
+        root.resolveDirection()
+        return root
+    }
+
+    static func attributedString(from rawHTML: String, style: Style,
+                                 onImageFallback: ((Bool) -> Void)? = nil) -> NSMutableAttributedString {
+        let renderer = ParagraphRenderer(style: style, onImageFallback: onImageFallback)
+        renderer.render(parse(rawHTML))
+        return renderer.finish()
+    }
+
+    private final class ParagraphRenderer {
+        let style: Style
+        let onImageFallback: ((Bool) -> Void)?
+        var state = InlineState()
+        var result = NSMutableAttributedString(string: "")
+        var paragraph = NSMutableAttributedString(string: "")
+        var paragraphStyle = TextStyle()
+        var pendingSpace: NSAttributedString?
+
+        init(style: Style, onImageFallback: ((Bool) -> Void)?) {
+            self.style = style
+            self.onImageFallback = onImageFallback
+        }
+
+        func render(_ node: Node) {
+            if let text = node.text { append(text); return }
+            guard let tag = node.tag else { node.children.forEach(render); return }
+            if tag.name == "img" {
+                let alt = tag.attributes["alt"] ?? ""
+                onImageFallback?(!alt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                append(alt)
+                return
+            }
+            if tag.name == "br" { flush(lineBreak: true); return }
+            if tag.name == "li", !node.hasVisibleContent {
+                reportImages(in: node)
+                return
+            }
+            let block = GMarkHTMLTokens.blocks.contains(tag.name)
+            if block { flush(lineBreak: true) }
+            let depth = state.frames.count
+            state.push(tag, autoDirection: node.firstStrong ?? .leftToRight)
+            if tag.name == "li" { append("• ") }
+            node.children.forEach(render)
+            if block { flush(lineBreak: true) }
+            state.frames.removeSubrange(depth...)
+        }
+
+        func reportImages(in node: Node) {
+            guard onImageFallback != nil else { return }
+            if node.tag?.name == "img" {
+                onImageFallback?(!(node.tag?.attributes["alt"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            node.children.forEach { reportImages(in: $0) }
+        }
+
+        func append(_ text: String) {
+            var run = ""
+            func emitRun() {
+                guard !run.isEmpty else { return }
+                if paragraph.length == 0 { paragraphStyle = state.paragraph }
+                else if let space = pendingSpace { paragraph.append(space) }
+                pendingSpace = nil
+                paragraph.append(attributedText(from: run, style: style, state: state, htmlMode: true))
+                run = ""
+            }
+            for c in text {
+                if GMarkHTMLTokens.isSpace(c) {
+                    emitRun()
+                    if pendingSpace == nil {
+                        pendingSpace = attributedText(from: " ", style: style, state: state, htmlMode: true)
+                    }
+                } else { run.append(c) }
+            }
+            emitRun()
+        }
+
+        func flush(lineBreak: Bool) {
+            pendingSpace = nil
+            guard paragraph.length > 0 else { return }
+            let p = NSMutableParagraphStyle()
+            p.paragraphSpacing = paragraphStyle.paragraphSpacing ?? 0
+            let font = paragraph.attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+            p.lineSpacing = max(0, 25 - (paragraphStyle.fontSize ?? font?.pointSize ?? style.fonts.current.pointSize))
+            p.baseWritingDirection = paragraphStyle.direction ?? .natural
+            p.alignment = .natural
+            paragraph.addAttribute(.paragraphStyle, value: p, range: NSRange(location: 0, length: paragraph.length))
+            result.append(paragraph)
+            if lineBreak {
+                result.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: p, .font: font ?? style.fonts.current]))
+            }
+            paragraph = NSMutableAttributedString(string: "")
+        }
+
+        func finish() -> NSMutableAttributedString {
+            flush(lineBreak: false)
+            return result
+        }
+    }
+
+    static func applyInlineToken(_ rawHTML: String, to state: inout InlineState, style: Style,
+                                 onImageFallback: ((Bool) -> Void)? = nil) -> NSAttributedString? {
+        guard let tag = GMarkHTMLTokens.tag(rawHTML) else { return nil }
+        if let ignored = state.ignoredTag {
+            if tag.closing, tag.name == ignored { state.ignoredTag = nil }
             return nil
-        case .lineBreak:
-            return NSAttributedString.singleNewline(withStyle: style)
-        case .listItem:
-            return attributedText(from: "• ", style: style, state: state)
-        case let .imageFallback(alt):
-            return attributedText(from: decodeEntities(in: alt), style: style, state: state)
+        }
+        if GMarkHTMLTokens.discarded.contains(tag.name) {
+            if !tag.closing, !tag.selfClosing, !GMarkHTMLTokens.voids.contains(tag.name) { state.ignoredTag = tag.name }
+            return nil
+        }
+        if tag.closing { state.close(tag.name) }
+        else if !tag.selfClosing, !GMarkHTMLTokens.voids.contains(tag.name) { state.push(tag) }
+        switch tag.name {
+        case "br": return NSAttributedString.singleNewline(withStyle: style)
+        case "li": return tag.closing ? NSAttributedString.singleNewline(withStyle: style) : attributedText(from: "• ", style: style, state: state)
+        case "p", "div", "blockquote": return tag.closing ? NSAttributedString.singleNewline(withStyle: style) : nil
+        case "img" where !tag.closing:
+            let alt = tag.attributes["alt"] ?? ""
+            onImageFallback?(!alt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            return attributedText(from: alt, style: style, state: state)
+        default: return nil
         }
     }
 
-    static func attributedText(from text: String, style: Style, state: InlineState) -> NSMutableAttributedString {
+    /// CommonMark Text nodes have already been decoded. Never decode here.
+    static func attributedText(from text: String, style: Style, state: InlineState, htmlMode: Bool = false) -> NSMutableAttributedString {
         let result = MarkdownStyleProcessor.buildDefaultAttributedString(from: text, style: style)
         guard result.length > 0 else { return result }
-
-        if state.boldDepth > 0 { MarkdownStyleProcessor.applyBoldFont(to: result) }
-        if state.italicDepth > 0 { MarkdownStyleProcessor.applyItalicFont(to: result) }
-        if state.underlineDepth > 0 {
-            result.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue)
+        let value = state.current
+        if htmlMode || state.isInHTMLContext {
+            let p = (result.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            p.paragraphSpacing = value.paragraphSpacing ?? 0
+            if let size = value.fontSize {
+                p.lineSpacing = max(0, 25 - size)
+                result.addAttribute(.font, value: style.fonts.current.withSize(size))
+            }
+            if let direction = value.direction { p.baseWritingDirection = direction; p.alignment = .natural }
+            result.addAttribute(.paragraphStyle, value: p)
+            if let color = value.color { result.addAttribute(.foregroundColor, value: color) }
         }
-        if state.strikeDepth > 0 {
-            result.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue)
+        if value.bold == true { MarkdownStyleProcessor.applyBoldFont(to: result) }
+        if value.italic == true { MarkdownStyleProcessor.applyItalicFont(to: result) }
+        if value.underline { result.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue) }
+        if let mark = value.mark {
+            result.addAttribute(.gmarkCustomClickableSpan, value: mark)
+            result.addAttribute(.underlineStyle, value: GMarkEditorMarkStyle.fallbackUnderline)
+            result.addAttribute(.underlineColor, value: GMarkEditorMarkStyle.color)
         }
-        if state.codeDepth > 0 {
+        if value.strike { result.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue) }
+        if value.code {
             result.addAttribute(.font, value: style.codeBlockStyle.font)
             result.addAttribute(.foregroundColor, value: style.codeBlockStyle.foregroundColor)
         }
-        if state.superscriptDepth > 0 || state.subscriptDepth > 0 {
-            let offset = state.superscriptDepth > 0 ? style.fonts.current.pointSize * 0.3 : -style.fonts.current.pointSize * 0.2
-            result.addAttribute(.baselineOffset, value: offset)
+        if value.superscript || value.subscriptText {
+            result.addAttribute(.baselineOffset, value: style.fonts.current.pointSize * (value.superscript ? 0.3 : -0.2))
             result.addAttribute(.font, value: style.fonts.current.withSize(style.fonts.current.pointSize * 0.75))
         }
+        if !value.inlineDirections.isEmpty { result.addAttribute(.writingDirection, value: value.inlineDirections) }
         return result
     }
 
-    private static func apply(token: String, to state: inout InlineState) -> TokenAction {
-        guard let tag = parseTag(token) else { return .none }
-        let name = tag.name
-
-        if discardedContainers.contains(name) {
-            if tag.isClosing {
-                state.ignoredDepth = max(0, state.ignoredDepth - 1)
-            } else if !tag.isSelfClosing {
-                state.ignoredDepth += 1
+    private static func parseTextStyle(_ raw: String, allowsParagraphSpacing: Bool) -> TextStyle {
+        var style = TextStyle()
+        for declaration in raw.split(separator: ";") {
+            guard let separator = declaration.firstIndex(of: ":") else { continue }
+            let name = declaration[..<separator].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let value = declaration[declaration.index(after: separator)...]
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            switch name {
+            case "font-size":
+                if let size = pixelValue(value), (8...72).contains(size) { style.fontSize = size }
+            case "color":
+                style.color = hexColor(value)
+            case "font-weight":
+                if value == "bold" || value == "bolder" || (Int(value) ?? 0) >= 600 {
+                    style.bold = true
+                } else if value == "normal" || value == "400" { style.bold = false }
+            case "font-style":
+                if value == "italic" || value == "oblique" { style.italic = true }
+                else if value == "normal" { style.italic = false }
+            case "margin-bottom":
+                if allowsParagraphSpacing, let spacing = pixelValue(value), (0...100).contains(spacing) {
+                    style.paragraphSpacing = spacing
+                }
+            case "margin":
+                guard allowsParagraphSpacing else { continue }
+                let parts = value.split(whereSeparator: \.isWhitespace)
+                guard !parts.isEmpty else { continue }
+                let bottom = parts.count == 1 ? parts[0] : parts.count >= 3 ? parts[2] : parts[0]
+                if let spacing = pixelValue(String(bottom)), (0...100).contains(spacing) {
+                    style.paragraphSpacing = spacing
+                }
+            default:
+                break
             }
-            return .none
         }
-
-        if state.isIgnoringContent { return .none }
-        if name == "img", !tag.isClosing {
-            return .imageFallback(attribute(named: "alt", in: tag.attributes) ?? "")
-        }
-
-        switch name {
-        case "br":
-            return .lineBreak
-        case "p", "div", "blockquote":
-            return tag.isClosing ? .lineBreak : .none
-        case "li":
-            return tag.isClosing ? .lineBreak : .listItem
-        case "strong", "b":
-            update(&state.boldDepth, closing: tag.isClosing)
-        case "em", "i":
-            update(&state.italicDepth, closing: tag.isClosing)
-        case "u":
-            update(&state.underlineDepth, closing: tag.isClosing)
-        case "s", "del":
-            update(&state.strikeDepth, closing: tag.isClosing)
-        case "sup":
-            update(&state.superscriptDepth, closing: tag.isClosing)
-        case "sub":
-            update(&state.subscriptDepth, closing: tag.isClosing)
-        case "code", "pre":
-            update(&state.codeDepth, closing: tag.isClosing)
-        default:
-            break // Unknown tags, including <a>, retain only their readable text.
-        }
-        return .none
+        return style
     }
 
-    private static func update(_ depth: inout Int, closing: Bool) {
-        depth = closing ? max(0, depth - 1) : depth + 1
+    private static func pixelValue(_ value: String) -> CGFloat? {
+        guard value.hasSuffix("px"), let number = Double(value.dropLast(2)), number.isFinite else { return nil }
+        return CGFloat(number)
     }
 
-    private static func appendLineBreak(to result: NSMutableAttributedString) {
-        guard result.length > 0, !result.string.hasSuffix("\n") else { return }
-        result.append(NSAttributedString(string: "\n"))
-    }
-
-    private static func endOfTag(startingAt start: String.Index, in source: String) -> String.Index? {
-        var index = source.index(after: start)
-        var quote: Character?
-        while index < source.endIndex {
-            let character = source[index]
-            if let activeQuote = quote {
-                if character == activeQuote { quote = nil }
-            } else if character == "\"" || character == "'" {
-                quote = character
-            } else if character == ">" {
-                return index
-            }
-            index = source.index(after: index)
+    private static func hexColor(_ value: String) -> UIColor? {
+        guard value.hasPrefix("#") else { return nil }
+        let hex = String(value.dropFirst())
+        guard hex.count == 3 || hex.count == 6,
+              hex.allSatisfy({ $0.isHexDigit }),
+              let number = UInt32(hex, radix: 16) else { return nil }
+        let red: UInt32
+        let green: UInt32
+        let blue: UInt32
+        if hex.count == 3 {
+            red = ((number >> 8) & 0xF) * 17
+            green = ((number >> 4) & 0xF) * 17
+            blue = (number & 0xF) * 17
+        } else {
+            red = (number >> 16) & 0xFF
+            green = (number >> 8) & 0xFF
+            blue = number & 0xFF
         }
-        return nil
+        return UIColor(red: CGFloat(red) / 255, green: CGFloat(green) / 255,
+                       blue: CGFloat(blue) / 255, alpha: 1)
     }
 
-    private static func parseTag(_ token: String) -> (name: String, attributes: String, isClosing: Bool, isSelfClosing: Bool)? {
-        guard token.hasPrefix("<"), token.hasSuffix(">") else { return nil }
-        let inner = String(token.dropFirst().dropLast())
-            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-        guard !inner.hasPrefix("!") && !inner.hasPrefix("?") else { return nil }
-
-        let isClosing = inner.hasPrefix("/")
-        let bodyStart = isClosing ? inner.index(after: inner.startIndex) : inner.startIndex
-        let body = String(inner[bodyStart...])
-            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-        guard let end = body.firstIndex(where: { $0.isWhitespace || $0 == "/" }) else {
-            let name = body.lowercased()
-            return (name, "", isClosing, body.hasSuffix("/"))
-        }
-        let name = String(body[..<end]).lowercased()
-        guard name.range(of: #"^[a-z][a-z0-9-]*$"#, options: String.CompareOptions.regularExpression) != nil else { return nil }
-        let attributes = String(body[end...])
-        return (name, attributes, isClosing, attributes.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).hasSuffix("/"))
-    }
-
-    private static func attribute(named name: String, in attributes: String) -> String? {
-        let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: name) + #"\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))"#
-        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
-              let match = expression.firstMatch(in: attributes, range: NSRange(attributes.startIndex..., in: attributes)) else {
-            return nil
-        }
-        for index in 1...3 where match.range(at: index).location != NSNotFound {
-            return String(attributes[Range(match.range(at: index), in: attributes)!])
-        }
-        return nil
-    }
-
-    private static func decodeEntities(in text: String) -> String {
-        text
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .replacingOccurrences(of: "&amp;", with: "&")
-    }
 }

@@ -1,5 +1,7 @@
 # GMarkdown 项目适配执行基线
 
+> 历史项目适配计划：下文“`richTxt` 尚未实现”和“组件仍缺通知”等结论描述当时进度。受控 HTML、`CustomClickableSpan` 展示及 Markdown 路径的失败/降级通知现已在仓库实现并同步到候选交付包。当前能力边界见 [RichTxtHTMLSupportScope.md](./RichTxtHTMLSupportScope.md)；真实业务工程仍未接入。
+
 状态：**阶段 1 的真实书籍数据盘点与已定义样本回归已完成；业务方已补充 `richTxt`、`CustomClickableSpan` 和失败降级要求。下一步按[项目接入执行计划](./ProjectIntegrationExecutionPlan.md)补齐明确缺口。** 本文是已有结果与接入基线的入口。
 
 ## 当前交接点（2026-09-29）

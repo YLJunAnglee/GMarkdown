@@ -1,5 +1,7 @@
 # GMarkdown 下一会话续接：整理 0.1.1 交付包
 
+> 历史交接记录：下文描述 2026-09-30 整理前的状态及任务。当前交付包状态以 [README.md](./README.md) 和 [SourceManifest.md](./SourceManifest.md) 为准。
+
 记录日期：2026-09-30。工作分支：`explore/capabilities`。展示实现提交为 `5be60d3 feat: render editor HTML and custom cloze marks`。新会话开始时仍应先核对 Git 状态，保留届时已有的用户改动。
 
 ## 当前决定

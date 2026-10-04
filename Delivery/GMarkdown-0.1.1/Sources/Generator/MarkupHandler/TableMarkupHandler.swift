@@ -26,6 +26,13 @@ public class TableMarkupHandler: MarkupHandler {
     
     public func handle(_ markup: Markup, style: Style?, imageLoader:ImageLoader?) -> GMarkChunk {
         self.imageLoader = imageLoader
+        return handle(markup, style: style, imageLoader: imageLoader, issueReporter: nil)
+    }
+
+    func handle(_ markup: Markup,
+                style: Style?,
+                imageLoader: ImageLoader?,
+                issueReporter: ((GMarkRenderIssue.Cause, GMarkRenderIssue.DisplayedFallback) -> Void)?) -> GMarkChunk {
         let chunk = GMarkChunk(chunkType: .Table, children: [markup])
         if let style = style {
             chunk.style = style
@@ -33,7 +40,7 @@ public class TableMarkupHandler: MarkupHandler {
         guard let markup = markup as! Table? else {
             return chunk
         }
-        chunk.generateTable(markup: markup, imageLoader: imageLoader)
+        chunk.generateTable(markup: markup, imageLoader: imageLoader, issueReporter: issueReporter)
         return chunk
     }
 }
@@ -41,12 +48,15 @@ public class TableMarkupHandler: MarkupHandler {
 // MARK: - Table Chunk
 
 extension GMarkChunk {
-    func generateTable(markup: Table, imageLoader: ImageLoader? = nil) {
+    func generateTable(markup: Table,
+                       imageLoader: ImageLoader? = nil,
+                       issueReporter: ((GMarkRenderIssue.Cause, GMarkRenderIssue.DisplayedFallback) -> Void)? = nil) {
         var style = style
         style.useMPTextKit = true
         style.imageStyle.size = CGSize(width: 60, height: 60)
         var visitor = GMarkupTableVisitor(style: style)
         visitor.imageLoader = imageLoader
+        visitor.issueReporter = issueReporter
         let table = visitor.visit(markup)
         calculateTable(table: table)
         
